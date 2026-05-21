@@ -1,0 +1,41 @@
+{
+  "_comment": "Copy this file to podpics-server-config.json and edit the paths for your device. storageRoot is where projects + outputs go. customRoots are extra directories the app may read videos from (Dropbox, Syncthing, etc).",
+  "storageRoot": "/path/to/your/podpics/storage",
+  "customRoots": [
+    "/path/to/your/podpics/storage"
+  ],
+  "workflow": {
+    "transcript": {
+      "apiUrl": "http://127.0.0.1:9099/v1/audio/transcriptions",
+      "apiKey": "",
+      "model": "distil-large-v3",
+      "language": "en",
+      "prompt": "",
+      "responseFormat": "verbose_json",
+      "windowSeconds": 60,
+      "overlapSeconds": 0,
+      "audioChannel": "left"
+    },
+    "recommendations": {
+      "engine": "heuristic",
+      "model": "",
+      "sessionMode": "ephemeral",
+      "sessionKey": "agent:main:podpics-recommendations",
+      "thinking": "off",
+      "sectionGapMaxMinutes": 1.2,
+      "sectionGapMinMinutes": 0.6,
+      "maxSections": 64,
+      "sectionDurationMinSeconds": 4,
+      "sectionDurationMaxSeconds": 8
+    },
+    "images": {
+      "engine": "pool",
+      "model": "openai/gpt-image-2",
+      "sessionMode": "main",
+      "sessionKey": "main",
+      "countPerSection": 2,
+      "size": "1024x1024",
+      "aspectRatio": ""
+    }
+  }
+}

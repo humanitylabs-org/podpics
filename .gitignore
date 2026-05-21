@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+*.pyc
+
+# user-local instance state (paths, secrets, custom presets)
+podpics-server-config.json
+
+# user-local workspace + sample data
+data-local/
+podpics-workspace/
+
+# editor scratch
+.DS_Store
+.vscode/
+.idea/

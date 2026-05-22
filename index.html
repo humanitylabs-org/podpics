@@ -81,10 +81,16 @@
     pre{background:#0f0f12;border:1px solid #2a2a33;border-radius:10px;padding:10px;overflow:auto;max-height:180px}
     .otioResult{padding:4px 2px}
     .otioPaths{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-    .otioPathRow{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #2a2a33;border-radius:8px;background:#0f0f14}
-    .otioPathLabel{font-size:11px;color:#a0a0b2;text-transform:uppercase;letter-spacing:.04em}
-    .otioPathVal{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#e8ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent;padding:0}
-    .otioCopyBtn{padding:4px 8px !important;font-size:11px !important;color:#9ff0d8 !important}
+    .otioPathRow{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:start;padding:8px 10px;border:1px solid #2a2a33;border-radius:8px;background:#0f0f14}
+    .otioPathLabel{font-size:11px;color:#a0a0b2;text-transform:uppercase;letter-spacing:.04em;padding-top:2px}
+    .otioPathVal{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#e8ecff;background:transparent;padding:0;white-space:normal;word-break:break-all;line-height:1.5;display:block}
+    .otioCopyBtn{padding:4px 8px !important;font-size:11px !important;color:#9ff0d8 !important;align-self:start}
+    .stepCardHead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+    .stepCardHead > div:first-child{flex:1;min-width:0}
+    .stepCardActions{flex:0 0 auto;display:flex;gap:8px;align-items:center}
+    .primaryAction{background:#14c38e;color:#0b0b0d;border:0;border-radius:10px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.01em;box-shadow:0 6px 16px rgba(20,195,142,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease}
+    .primaryAction:hover:not(:disabled){background:#1bd49b;transform:translateY(-1px);box-shadow:0 8px 20px rgba(20,195,142,.35)}
+    .primaryAction:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;background:#1f3026;color:#5a6677}
     .doneScreen{position:relative;margin-top:16px;min-height:calc(100vh - 140px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px}
     .doneScreen.hide{display:none}
     .doneScreen canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:5}
@@ -619,8 +625,15 @@
 
       <div class="stepPanel hide" id="stepPanel4">
         <div class="stepCard">
-          <p class="stepTitle">Generate and select images</p>
-          <div class="mini muted" id="step4SectionsSummary">Use the toolbar to generate. Click a candidate to lock it in. Use ↻ on a card to tweak prompt and regenerate or add more. Export OTIO when you're happy.</div>
+          <div class="stepCardHead">
+            <div>
+              <p class="stepTitle">Generate and select images</p>
+              <div class="mini muted" id="step4SectionsSummary">Use the toolbar to generate. Click a candidate to lock it in. Use ↻ on a card to tweak prompt and regenerate or add more. Export OTIO when you're happy.</div>
+            </div>
+            <div class="stepCardActions" id="otioActionTop">
+              <button id="generateOtio" class="primaryAction">Generate OTIO file ›</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -832,11 +845,8 @@
       <div class="slotList" id="slotList"></div>
 
       <div class="footer">
-        <div class="row" style="justify-content:space-between">
+        <div class="row" style="justify-content:flex-start">
           <div id="selSummary" class="muted">0 selections</div>
-          <div class="row" style="margin:0" id="otioActionWrap">
-            <button id="generateOtio">Generate OTIO file</button>
-          </div>
         </div>
       </div>
     </div>
@@ -1060,6 +1070,7 @@ let state = {
   gatewayModels: [],
   uiStep: 1,
   uiDone: false,
+  lastOtioExport: null,
   workflowLockStep: 0,
   step1Proceed: false,
   activeRecommendationJobId: null,
@@ -1663,6 +1674,7 @@ function showBootLoading(msg = 'Loading...'){
 
 function showProjectHome(){
   if (bootLoadingEl) bootLoadingEl.classList.add('hide');
+  if (state.uiDone) hideDoneScreen();
   projectHomeEl.classList.remove('hide');
   editorShellEl.classList.add('hide');
   if (titleWorkflowNavEl) titleWorkflowNavEl.classList.add('hide');
@@ -3493,6 +3505,7 @@ function currentProjectPayload(){
       transcriptMeta: state.transcriptMeta || null,
       transcriptWarnings: Array.isArray(state.transcriptWarnings) ? state.transcriptWarnings : [],
       transcriptStats: state.transcriptStats || null,
+      lastOtioExport: state.lastOtioExport || null,
     },
     transcriptLines: state.transcript,
     sets: state.sets,
@@ -3550,6 +3563,9 @@ async function loadProjectById(id){
       ? p.source.transcriptStats
       : null;
     state.activeRecommendationJobId = p.source?.recommendationJobId || null;
+    state.lastOtioExport = (p.source && p.source.lastOtioExport && typeof p.source.lastOtioExport === 'object')
+      ? p.source.lastOtioExport
+      : null;
     state.sectionsConfirmed = typeof p.source?.sectionsConfirmed === 'boolean'
       ? p.source.sectionsConfirmed
       : state.sets.length > 0;
@@ -3644,6 +3660,26 @@ async function loadProjectById(id){
     state.suppressAutosave = false;
   }
   setTimeout(() => { runAutoSidePass().catch(()=>{}); }, 800);
+
+  if (state.lastOtioExport && state.lastOtioExport.otioPath) {
+    setTimeout(() => { showDoneScreenFromExport(state.lastOtioExport); }, 250);
+  }
+}
+
+function showDoneScreenFromExport(exp){
+  if (!exp || !exp.otioPath) return;
+  const synthetic = {
+    ok: true,
+    result: {
+      mode: exp.mode || 'multi-section',
+      outputDir: exp.outputDir || '',
+      overlayCount: Number(exp.overlayCount || 1),
+      outputs: { otio: exp.otioPath },
+      recommendedForResolveTest: exp.otioPath,
+      createdAtUtc: exp.generatedAt || '',
+    },
+  };
+  showDoneScreen(synthetic, { overlayCount: Number(exp.overlayCount || 1) });
 }
 
 function renderProjectsList(items = []) {
@@ -4388,6 +4424,7 @@ async function deleteCurrentProject(){
   state.sectionsConfirmed = false;
   state.manualRange = null;
   state.selectedLineRange = null;
+  state.lastOtioExport = null;
   renderTranscript();
   renderSets();
   await loadProjectsList();
@@ -4446,7 +4483,19 @@ async function generateOtioFromSelection(){
       body: JSON.stringify(payload),
     });
     renderOtioResult(out, pickedSets[0], { overlayCount: overlays.length, skipped });
-    if (out && out.ok && out.result) showDoneScreen(out, { overlayCount: overlays.length });
+    if (out && out.ok && out.result) {
+      const r = out.result;
+      state.lastOtioExport = {
+        mode: r.mode || 'multi-section',
+        outputDir: r.outputDir || '',
+        otioPath: r.recommendedForResolveTest || (r.outputs && (r.outputs.otio || r.outputs.otioClean)) || '',
+        overlayCount: Number(r.overlayCount || overlays.length || 1),
+        generatedAt: r.createdAtUtc || new Date().toISOString(),
+      };
+      markDirty();
+      try { await saveProject({ silent: true, autosave: true }); } catch {}
+      showDoneScreen(out, { overlayCount: overlays.length });
+    }
   }catch(err){
     resultBoxEl.textContent = `Failed: ${String(err)}`;
   }

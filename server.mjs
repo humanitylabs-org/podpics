@@ -4120,18 +4120,35 @@ async function readJsonBody(req) {
 async function runGenerateWithOptions(paths, opts = {}) {
   const args = [SCRIPT_PATH, '--storage-root', paths.storageRoot];
   if (opts.rawVideo) args.push('--raw-video', String(opts.rawVideo));
-  if (opts.overlayImage) args.push('--overlay-image', String(opts.overlayImage));
   if (opts.label) args.push('--label', String(opts.label));
-  if (Number.isFinite(Number(opts.offsetSeconds))) args.push('--offset-seconds', String(opts.offsetSeconds));
-  if (Number.isFinite(Number(opts.durationSeconds))) args.push('--duration-seconds', String(opts.durationSeconds));
-  if (Number.isFinite(Number(opts.overlayZoom))) args.push('--overlay-zoom', String(opts.overlayZoom));
-  if (Number.isFinite(Number(opts.overlayPan))) args.push('--overlay-pan', String(opts.overlayPan));
-  if (Number.isFinite(Number(opts.overlayTilt))) args.push('--overlay-tilt', String(opts.overlayTilt));
 
-  const { stdout, stderr } = await execFileAsync('python3', args, {
-    timeout: 180000,
-    maxBuffer: 8_000_000,
-  });
+  let overlaysTempFile = null;
+  if (Array.isArray(opts.overlays) && opts.overlays.length) {
+    overlaysTempFile = path.join(os.tmpdir(), `podpics-overlays-${Date.now()}-${process.pid}.json`);
+    await fs.writeFile(overlaysTempFile, JSON.stringify(opts.overlays), 'utf-8');
+    args.push('--overlays-json', overlaysTempFile);
+  } else {
+    if (opts.overlayImage) args.push('--overlay-image', String(opts.overlayImage));
+    if (Number.isFinite(Number(opts.offsetSeconds))) args.push('--offset-seconds', String(opts.offsetSeconds));
+    if (Number.isFinite(Number(opts.durationSeconds))) args.push('--duration-seconds', String(opts.durationSeconds));
+    if (Number.isFinite(Number(opts.overlayZoom))) args.push('--overlay-zoom', String(opts.overlayZoom));
+    if (Number.isFinite(Number(opts.overlayPan))) args.push('--overlay-pan', String(opts.overlayPan));
+    if (Number.isFinite(Number(opts.overlayTilt))) args.push('--overlay-tilt', String(opts.overlayTilt));
+  }
+
+  let stdout = '', stderr = '';
+  try {
+    const r = await execFileAsync('python3', args, {
+      timeout: 180000,
+      maxBuffer: 8_000_000,
+    });
+    stdout = r.stdout;
+    stderr = r.stderr;
+  } finally {
+    if (overlaysTempFile) {
+      fs.unlink(overlaysTempFile).catch(() => {});
+    }
+  }
 
   const text = String(stdout || '').trim();
   let parsed = null;

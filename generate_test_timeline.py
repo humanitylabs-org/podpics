@@ -330,6 +330,167 @@ def patch_otio_clean(template_path: Path, out_path: Path, raw_video: Path, overl
     }
 
 
+def build_overlay_clip(template_path_obj: dict, overlay_image: Path,
+                       duration_frames: int, zoom: float, pan: float, tilt: float):
+    image_clip_template = find_first_image_clip(template_path_obj)
+    if image_clip_template is None:
+        raise RuntimeError('Could not find an image clip template in OTIO')
+    transform_template = find_transform_effect_template(template_path_obj)
+
+    image_clip = copy.deepcopy(image_clip_template)
+    patch_clip_media_name_and_url(image_clip, overlay_image.name, str(overlay_image.resolve()))
+
+    if not isinstance(image_clip.get('effects'), list):
+        image_clip['effects'] = []
+
+    has_transform = any(
+        (((e.get('metadata') or {}).get('Resolve_OTIO') or {}).get('Effect Name') == 'Transform')
+        for e in image_clip['effects']
+    )
+    if not has_transform:
+        if transform_template is not None:
+            image_clip['effects'].append(copy.deepcopy(transform_template))
+        else:
+            image_clip['effects'].append({
+                'OTIO_SCHEMA': 'Effect.1',
+                'metadata': {
+                    'Resolve_OTIO': {
+                        'Display Type': 1,
+                        'Effect Name': 'Transform',
+                        'Enabled': True,
+                        'Name': 'Transform',
+                        'Parameters': [
+                            {'Parameter ID': 'transformationZoomX', 'Parameter Value': 1.0, 'Variant Type': 'Double', 'Default Parameter Value': 1.0},
+                            {'Parameter ID': 'transformationZoomY', 'Parameter Value': 1.0, 'Variant Type': 'Double', 'Default Parameter Value': 1.0},
+                            {'Parameter ID': 'transformationPan', 'Parameter Value': 0.0, 'Variant Type': 'Double', 'Default Parameter Value': 0.0},
+                            {'Parameter ID': 'transformationTilt', 'Parameter Value': 0.0, 'Variant Type': 'Double', 'Default Parameter Value': 0.0},
+                        ],
+                        'Type': 2,
+                    }
+                },
+                'name': '',
+                'effect_name': 'Resolve Effect',
+            })
+
+    for eff in image_clip.get('effects', []):
+        md = ((eff.get('metadata') or {}).get('Resolve_OTIO') or {})
+        if md.get('Effect Name') != 'Transform':
+            continue
+        params = md.get('Parameters')
+        if not isinstance(params, list) or len(params) == 0:
+            md['Parameters'] = [
+                {'Parameter ID': 'transformationZoomX', 'Parameter Value': 1.0, 'Variant Type': 'Double', 'Default Parameter Value': 1.0},
+                {'Parameter ID': 'transformationZoomY', 'Parameter Value': 1.0, 'Variant Type': 'Double', 'Default Parameter Value': 1.0},
+                {'Parameter ID': 'transformationPan', 'Parameter Value': 0.0, 'Variant Type': 'Double', 'Default Parameter Value': 0.0},
+                {'Parameter ID': 'transformationTilt', 'Parameter Value': 0.0, 'Variant Type': 'Double', 'Default Parameter Value': 0.0},
+            ]
+            params = md['Parameters']
+        for prm in params:
+            pid = prm.get('Parameter ID')
+            if pid == 'transformationZoomX':
+                prm['Parameter Value'] = float(zoom)
+            elif pid == 'transformationZoomY':
+                prm['Parameter Value'] = float(zoom)
+            elif pid == 'transformationPan':
+                prm['Parameter Value'] = float(pan)
+            elif pid == 'transformationTilt':
+                prm['Parameter Value'] = float(tilt)
+
+    if image_clip.get('source_range') and image_clip['source_range'].get('duration'):
+        image_clip['source_range']['duration']['value'] = float(duration_frames)
+    if image_clip.get('source_range') and image_clip['source_range'].get('start_time'):
+        image_clip['source_range']['start_time']['value'] = 0.0
+
+    return image_clip
+
+
+def patch_otio_clean_multi(template_path: Path, out_path: Path, raw_video: Path, overlays: list, fps: float = 24.0):
+    obj = json.loads(template_path.read_text(encoding='utf-8'))
+    tracks = obj.get('tracks', {}).get('children', [])
+    if len(tracks) < 2:
+        raise RuntimeError('Unexpected OTIO template shape: missing tracks')
+
+    main_video_track = copy.deepcopy(tracks[0])
+    overlay_track = copy.deepcopy(tracks[1])
+    audio_track = copy.deepcopy(next((t for t in tracks if t.get('kind') == 'Audio'), tracks[-1]))
+
+    raw_url = str(raw_video.resolve())
+    for clip in main_video_track.get('children', []):
+        if str(clip.get('OTIO_SCHEMA', '')).startswith('Clip'):
+            patch_clip_media_name_and_url(clip, raw_video.name, raw_url)
+    for clip in audio_track.get('children', []):
+        if str(clip.get('OTIO_SCHEMA', '')).startswith('Clip'):
+            patch_clip_media_name_and_url(clip, raw_video.name, raw_url)
+
+    total_frames = 0.0
+    for ch in main_video_track.get('children', []):
+        sr = ch.get('source_range') or {}
+        dur = (sr.get('duration') or {}).get('value')
+        if dur is not None:
+            total_frames += float(dur)
+    if total_frames <= 0:
+        for ch in overlay_track.get('children', []):
+            sr = ch.get('source_range') or {}
+            dur = (sr.get('duration') or {}).get('value')
+            if dur is not None:
+                total_frames += float(dur)
+
+    items = []
+    for ov in overlays:
+        img = Path(str(ov['image'])).resolve()
+        offset_frames = int(round(float(ov.get('offsetSeconds', 0.0)) * fps))
+        duration_frames = max(1, int(round(float(ov.get('durationSeconds', 5.0)) * fps)))
+        items.append({
+            'image': img,
+            'offset_frames': max(0, offset_frames),
+            'duration_frames': duration_frames,
+            'zoom': float(ov.get('zoom', 0.33)),
+            'pan': float(ov.get('pan', 0.0)),
+            'tilt': float(ov.get('tilt', 0.0)),
+        })
+
+    items.sort(key=lambda x: x['offset_frames'])
+
+    placed = []
+    cursor = 0.0
+    children = []
+    for it in items:
+        start = float(it['offset_frames'])
+        dur = float(it['duration_frames'])
+        if start < cursor:
+            start = cursor
+        if start + dur > total_frames and total_frames > 0:
+            start = max(0.0, total_frames - dur)
+        gap_frames = max(0.0, start - cursor)
+        if gap_frames > 0:
+            children.append(make_gap(gap_frames, fps))
+        clip = build_overlay_clip(obj, it['image'], int(dur), it['zoom'], it['pan'], it['tilt'])
+        children.append(clip)
+        cursor = start + dur
+        placed.append({
+            'image': str(it['image']),
+            'offsetFrames': int(start),
+            'durationFrames': int(dur),
+            'zoom': it['zoom'],
+            'pan': it['pan'],
+            'tilt': it['tilt'],
+        })
+
+    if total_frames > cursor:
+        children.append(make_gap(total_frames - cursor, fps))
+
+    overlay_track['children'] = children
+    obj['tracks']['children'] = [main_video_track, overlay_track, audio_track]
+    out_path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding='utf-8')
+
+    return {
+        'overlayCount': len(placed),
+        'overlays': placed,
+        'totalFrames': int(total_frames),
+        'fps': fps,
+    }
+
+
 def patch_otio(template_path: Path, out_path: Path, raw_video: Path, overlay_image: Path):
     obj = json.loads(template_path.read_text(encoding='utf-8'))
 
@@ -369,6 +530,7 @@ def main():
     ap.add_argument('--overlay-zoom', type=float, default=0.33, help='Overlay scale (Transform zoom X/Y)')
     ap.add_argument('--overlay-pan', type=float, default=0.72, help='Overlay horizontal position (Transform pan)')
     ap.add_argument('--overlay-tilt', type=float, default=0.0, help='Overlay vertical position (Transform tilt)')
+    ap.add_argument('--overlays-json', default=None, help='Path to JSON file with list of overlays for multi-section export')
     args = ap.parse_args()
 
     paths = resolve_paths(Path(args.storage_root))
@@ -382,25 +544,81 @@ def main():
     if not raw_candidate.exists():
         raw_candidate = find_first_file(paths['base'] / 'inbox', VIDEO_EXTS) or find_first_file(paths['base'] / 'Timelines', VIDEO_EXTS) or raw_candidate
 
-    overlay_candidate = Path(args.overlay_image) if args.overlay_image else default_image
-    if not overlay_candidate.exists():
-        overlay_candidate = (
-            find_first_file(paths['base'] / 'assets', IMAGE_EXTS)
-            or find_first_file(paths['base'] / 'inbox', IMAGE_EXTS)
-            or find_first_file(paths['base'] / '01_asset-library', IMAGE_EXTS)
-            or overlay_candidate
-        )
-
     raw_video = choose_existing(raw_candidate, default_raw_video)
-    overlay_src = choose_existing(overlay_candidate, default_image)
 
-    if not template_fcpxml.exists() or not template_otio.exists():
-        raise FileNotFoundError('Missing Episode 4 template exports in /Timelines')
+    if not template_otio.exists():
+        raise FileNotFoundError('Missing Episode 4 OTIO template in /Timelines')
 
     output_root.mkdir(parents=True, exist_ok=True)
     ts = dt.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
     out_dir = output_root / f'{args.label}-{ts}'
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    overlay_src = None
+    if not args.overlays_json:
+        overlay_candidate = Path(args.overlay_image) if args.overlay_image else default_image
+        if not overlay_candidate.exists():
+            overlay_candidate = (
+                find_first_file(paths['base'] / 'assets', IMAGE_EXTS)
+                or find_first_file(paths['base'] / 'inbox', IMAGE_EXTS)
+                or find_first_file(paths['base'] / '01_asset-library', IMAGE_EXTS)
+                or overlay_candidate
+            )
+        overlay_src = choose_existing(overlay_candidate, default_image)
+        if not template_fcpxml.exists():
+            raise FileNotFoundError('Missing Episode 4 FCPXML template in /Timelines')
+
+    if args.overlays_json:
+        overlays_payload = json.loads(Path(args.overlays_json).read_text(encoding='utf-8'))
+        items_raw = overlays_payload if isinstance(overlays_payload, list) else overlays_payload.get('overlays', [])
+        if not items_raw:
+            raise RuntimeError('--overlays-json provided but contains no overlays')
+
+        copied_overlays = []
+        for ov in items_raw:
+            src_path = Path(str(ov.get('image') or '')).expanduser()
+            if not src_path.exists():
+                raise FileNotFoundError(f'Overlay image not found: {src_path}')
+            dest = out_dir / src_path.name
+            n = 1
+            while dest.exists() and dest.resolve() != src_path.resolve():
+                dest = out_dir / f'{src_path.stem}-{n}{src_path.suffix}'
+                n += 1
+            if dest.resolve() != src_path.resolve():
+                shutil.copy2(src_path, dest)
+            copied_overlays.append({
+                'image': str(dest),
+                'offsetSeconds': float(ov.get('offsetSeconds', 0.0)),
+                'durationSeconds': float(ov.get('durationSeconds', 5.0)),
+                'zoom': float(ov.get('zoom', 0.28)),
+                'pan': float(ov.get('pan', 0.0)),
+                'tilt': float(ov.get('tilt', 0.0)),
+            })
+
+        out_otio_full = out_dir / 'podpics-timeline.otio'
+        full_meta = patch_otio_clean_multi(template_otio, out_otio_full, raw_video, copied_overlays)
+
+        manifest = {
+            'createdAtUtc': dt.datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+            'mode': 'multi-section',
+            'storageRoot': str(paths['base']),
+            'rawVideo': str(raw_video),
+            'overlayCount': full_meta['overlayCount'],
+            'templateOtio': str(template_otio),
+            'outputDir': str(out_dir),
+            'outputs': {
+                'otio': str(out_otio_full),
+            },
+            'recommendedForResolveTest': str(out_otio_full),
+            'overlaysPlaced': full_meta['overlays'],
+            'notes': [
+                'Import podpics-timeline.otio in DaVinci Resolve.',
+                'If media is offline, relink to local copies of video/image assets under your selected storage root.',
+            ],
+        }
+        (out_dir / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+        print(json.dumps(manifest, ensure_ascii=False))
+        return
 
     overlay_copy = out_dir / overlay_src.name
     shutil.copy2(overlay_src, overlay_copy)
@@ -429,6 +647,7 @@ def main():
 
     manifest = {
         'createdAtUtc': dt.datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+        'mode': 'single-section',
         'storageRoot': str(paths['base']),
         'rawVideo': str(raw_video),
         'overlayImage': str(overlay_copy),

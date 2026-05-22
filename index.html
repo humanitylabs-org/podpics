@@ -4207,45 +4207,54 @@ async function deleteCurrentProject(){
 }
 
 async function generateOtioFromSelection(){
-  const pickedSet = state.sets.find(s=>s.selectedCandidateId);
-  if (!pickedSet){
+  const pickedSets = (state.sets || []).filter(s => s.selectedCandidateId);
+  if (!pickedSets.length){
     resultBoxEl.textContent = 'Pick at least one image first.';
     return;
   }
 
-  const picked = (pickedSet.candidates || []).find(c=>c.id===pickedSet.selectedCandidateId);
-  if (!picked){
-    resultBoxEl.textContent = 'Selected candidate not found.';
+  const overlays = [];
+  const skipped = [];
+  for (const s of pickedSets) {
+    const c = (s.candidates || []).find(c => c.id === s.selectedCandidateId);
+    if (!c || !c.path) { skipped.push(s.title || s.id); continue; }
+    const durationSeconds = clampSectionDuration(
+      Number.isFinite(Number(s.durationSeconds))
+        ? Number(s.durationSeconds)
+        : estimateSectionDurationFromText(s.transcriptSnippet || '', state.workflow),
+      state.workflow,
+    );
+    const pan = (s.sideSelected || s.sideSuggested || 'right') === 'left' ? -0.72 : 0.72;
+    overlays.push({
+      image: c.path,
+      offsetSeconds: parseTcToSeconds(s.startTc),
+      durationSeconds,
+      zoom: 0.28,
+      pan,
+      tilt: 0,
+    });
+  }
+
+  if (!overlays.length) {
+    resultBoxEl.textContent = 'No selected candidates have valid file paths.';
     return;
   }
 
-  const durationSeconds = clampSectionDuration(
-    Number.isFinite(Number(pickedSet.durationSeconds))
-      ? Number(pickedSet.durationSeconds)
-      : estimateSectionDurationFromText(pickedSet.transcriptSnippet || '', state.workflow),
-    state.workflow,
-  );
-
-  const pan = (pickedSet.sideSelected || 'right') === 'left' ? -0.72 : 0.72;
+  const projectLabel = String(projectNameEl?.value || '').trim().replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'timeline';
   const payload = {
     rawVideo: state.rawVideoPath || state.source?.rawVideoPath,
-    overlayImage: picked.path,
-    label: `section-${pickedSet.id}`,
-    offsetSeconds: parseTcToSeconds(pickedSet.startTc),
-    durationSeconds,
-    overlayZoom: 0.28,
-    overlayPan: pan,
-    overlayTilt: 0,
+    label: projectLabel,
+    overlays,
   };
 
-  resultBoxEl.textContent = 'Generating...';
+  resultBoxEl.textContent = `Generating OTIO with ${overlays.length} overlay${overlays.length === 1 ? '' : 's'}…`;
   try{
     const out = await getJson('/podpics/api/generate-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    renderOtioResult(out, pickedSet);
+    renderOtioResult(out, pickedSets[0], { overlayCount: overlays.length, skipped });
   }catch(err){
     resultBoxEl.textContent = `Failed: ${String(err)}`;
   }
@@ -4258,28 +4267,44 @@ function downloadLink(label, absPath){
   return `<a href="${esc(href)}" download="${esc(filename)}" class="otioDl" title="${esc(absPath)}">${esc(label)} <span class="mini muted">(${esc(filename)})</span></a>`;
 }
 
-function renderOtioResult(out, pickedSet){
+function renderOtioResult(out, pickedSet, extras = {}){
   if (!out || !out.ok || !out.result) {
     resultBoxEl.textContent = `Failed: ${JSON.stringify(out)}`;
     return;
   }
   const r = out.result;
   const outputs = r.outputs || {};
-  const recommended = r.recommendedForResolveTest || outputs.otioClean || outputs.otio;
-  const total = (state.sets || []).filter(s => s.selectedCandidateId).length;
-  const sectionLabel = pickedSet ? `${pickedSet.startTc || ''} ${pickedSet.title || pickedSet.id || ''}`.trim() : 'first selected section';
+  const isMulti = r.mode === 'multi-section';
+  const recommended = r.recommendedForResolveTest || outputs.otio || outputs.otioClean;
+  const overlayCount = Number(r.overlayCount || extras.overlayCount || 1);
+  const skipped = Array.isArray(extras.skipped) ? extras.skipped : [];
 
-  const links = [
-    downloadLink('Download OTIO (clean — recommended for Resolve)', outputs.otioClean),
-    downloadLink('Download OTIO (debug variant)', outputs.otio),
-    downloadLink('Download FCPXML', outputs.fcpxml),
-  ].filter(Boolean).join('');
+  const links = isMulti
+    ? [downloadLink('Download OTIO timeline (for DaVinci Resolve)', outputs.otio || recommended)]
+    : [
+        downloadLink('Download OTIO (clean — recommended for Resolve)', outputs.otioClean),
+        downloadLink('Download OTIO (debug variant)', outputs.otio),
+        downloadLink('Download FCPXML', outputs.fcpxml),
+      ];
+  const linksHtml = links.filter(Boolean).join('');
+
+  const header = isMulti
+    ? `Timeline generated with ${overlayCount} overlay${overlayCount === 1 ? '' : 's'}`
+    : 'Timeline generated (single-section test)';
+  const subline = isMulti
+    ? `Import the OTIO into DaVinci Resolve. The raw video stays on disk — Resolve will relink to it from the .otio.`
+    : `Built a one-section debug timeline from <strong>${esc(pickedSet ? (pickedSet.startTc + ' ' + (pickedSet.title || pickedSet.id || '')).trim() : 'the first selected section')}</strong>.`;
+
+  const skippedNote = skipped.length
+    ? `<div class="mini" style="margin-top:6px;color:#ffcf8a">Skipped ${skipped.length} section${skipped.length === 1 ? '' : 's'} with missing file path${skipped.length === 1 ? '' : 's'}.</div>`
+    : '';
 
   resultBoxEl.innerHTML = `
     <div class="otioResult">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px">Timeline generated</div>
-      <div class="mini muted" style="margin-bottom:8px">Built a single-section test timeline from <strong>${esc(sectionLabel)}</strong>. (Note: this is a 1-section debug export. ${total > 1 ? `You have ${total} sections selected — multi-section export isn't wired up yet.` : ''})</div>
-      <div class="otioLinks">${links || '<span class="mini muted">No output files were reported.</span>'}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">${esc(header)}</div>
+      <div class="mini muted" style="margin-bottom:8px">${subline}</div>
+      <div class="otioLinks">${linksHtml || '<span class="mini muted">No output files were reported.</span>'}</div>
+      ${skippedNote}
       <details class="mini muted" style="margin-top:8px">
         <summary>Files on disk</summary>
         <div style="margin-top:6px"><code>${esc(r.outputDir || '')}</code></div>

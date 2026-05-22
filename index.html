@@ -193,6 +193,7 @@
     .statusConsole{margin-top:8px;max-height:130px}
     .statusConsoleSlim{margin-top:6px;padding:6px 10px;background:#0e1018;border:1px solid #232634;border-radius:8px;font-size:12px;line-height:1.35;color:#cfd9ff;white-space:pre-wrap;max-height:96px;overflow:auto}
     .statusConsoleSlim.idle{color:#7c8aa6;background:#0c0e15}
+    .statusConsoleSlim.hasRichResult{max-height:none;white-space:normal;padding:12px;background:#11141d}
     .imageModal{position:fixed;inset:0;background:rgba(5,8,12,.82);display:none;align-items:center;justify-content:center;z-index:120;padding:16px}
     .imageModal.show{display:flex}
     .imageModalInner{width:min(1180px,96vw);max-height:92vh;background:#0f1118;border:1px solid #2a3042;border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.52);display:flex;flex-direction:column;overflow:hidden}
@@ -851,6 +852,18 @@
 const transcriptEl = document.getElementById('transcript');
 const slotListEl = document.getElementById('slotList');
 const resultBoxEl = document.getElementById('resultBox');
+(function () {
+  const proto = Object.getPrototypeOf(resultBoxEl);
+  const desc = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent')
+    || Object.getOwnPropertyDescriptor(proto, 'textContent');
+  if (!desc || !desc.set) return;
+  Object.defineProperty(resultBoxEl, 'textContent', {
+    configurable: true,
+    enumerable: true,
+    get() { return desc.get.call(this); },
+    set(v) { this.classList.remove('hasRichResult'); desc.set.call(this, v); },
+  });
+})();
 const selSummaryEl = document.getElementById('selSummary');
 const transcriptSourceLabelEl = document.getElementById('transcriptSourceLabel');
 const transcriptToolsEl = document.getElementById('transcriptTools');
@@ -4310,6 +4323,7 @@ function renderOtioResult(out, pickedSet, extras = {}){
     ? `<div class="otioPathRow"><div class="otioPathLabel">${esc(label)}</div><code class="otioPathVal" title="${esc(val)}">${esc(val)}</code><button class="linkBtn otioCopyBtn" type="button" data-copy="${esc(val)}">Copy</button></div>`
     : '';
 
+  resultBoxEl.classList.add('hasRichResult');
   resultBoxEl.innerHTML = `
     <div class="otioResult">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px">${esc(header)}</div>

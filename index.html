@@ -51,26 +51,39 @@
     .tline.manual{background:rgba(122,162,255,.14);outline:1px solid rgba(122,162,255,.35)}
     .tline.playing{background:rgba(255,205,90,.16);outline:1px solid rgba(255,205,90,.4)}
     .slotList{height:56vh;overflow:auto;padding-right:2px}
-    .slot{border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#12121a,#101016);padding:10px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.2)}
-    .slotClickable{cursor:pointer;border-color:#38405a;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}
-    .slotClickable:hover{transform:translateY(-1px);border-color:#6b7fb6;box-shadow:0 0 0 1px rgba(122,162,255,.26) inset,0 6px 16px rgba(0,0,0,.24)}
-    .slotActive{border-color:#2ecf95 !important;box-shadow:0 0 0 2px rgba(20,195,142,.28) inset,0 8px 20px rgba(0,0,0,.32) !important;background:linear-gradient(180deg,#12211d,#10161a) !important}
+    .slot{border:1px solid #1d1d27;border-radius:12px;background:#101016;padding:9px 10px;margin-bottom:8px;box-shadow:none}
+    .slotClickable{cursor:pointer;transition:border-color .12s ease,background .12s ease}
+    .slotClickable:hover{border-color:#3a4256;background:#13131b}
+    .slotActive{border-color:#2ecf95 !important;background:#11201b !important;box-shadow:none !important}
     .slotClickable button,.slotClickable input,.slotClickable select,.slotClickable textarea{cursor:auto}
     .clickHint{margin-top:6px;font-size:12px;color:var(--muted)}
     .slotHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
     .tag{font-size:12px;padding:3px 7px;border-radius:999px;background:#252532;color:#c7d0ff;border:1px solid #39406e}
     .tc{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:12px;color:#cfcfde}
-    .snippet{white-space:pre-wrap;background:#0f0f14;border:1px solid #22222e;border-radius:10px;padding:7px;font-size:12px;max-height:108px;overflow:auto;margin-top:7px}
     .candGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;margin-top:10px}
-    .cand{border:1px solid #2e2e3a;border-radius:10px;padding:6px;background:#15151d;display:flex;flex-direction:column;gap:6px;position:relative;cursor:pointer;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
-    .cand:hover{border-color:#6b7fb6;box-shadow:0 0 0 1px rgba(122,162,255,.26) inset,0 6px 16px rgba(0,0,0,.24);transform:translateY(-1px)}
-    .cand.selected{border-color:var(--ok);box-shadow:0 0 0 1px rgba(20,195,142,.35) inset}
-    .thumb{width:100%;height:136px;object-fit:cover;border-radius:8px;background:#0b0b0d}
+    .sectionRegenPanel{margin-top:10px;padding:10px;border:1px solid #2e5b3a;border-radius:10px;background:#0d1a14}
+    .sectionRegenPanel.hide{display:none}
+    .sectionRegenPanel textarea{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:12px;line-height:1.4;background:#0a1410}
+    .sideToggle{padding:6px 12px;border-radius:8px;background:#1b2436;color:#cfd9ff;border:1px solid #3a4d6b;font-weight:600;font-size:13px;cursor:pointer;min-width:96px;text-align:center;letter-spacing:.02em}
+    .sideToggle:hover:not(:disabled){background:#243352;border-color:#5d80c7;transform:translateY(-1px)}
+    .sideToggle:disabled{opacity:.5;cursor:not-allowed}
+    .cand{border:0;border-radius:10px;padding:0;background:transparent;display:block;position:relative;cursor:pointer;transition:transform .12s ease}
+    .cand:hover{transform:translateY(-1px)}
+    .cand:hover .thumb{box-shadow:0 0 0 1px #6b7fb6,0 6px 16px rgba(0,0,0,.28)}
+    .cand.selected .thumb{box-shadow:0 0 0 2px var(--ok),0 6px 16px rgba(20,195,142,.18)}
+    .thumb{width:100%;height:136px;object-fit:cover;border-radius:10px;background:#0b0b0d;transition:box-shadow .12s ease}
     .thumbBroken{display:flex;align-items:center;justify-content:center;background:#10121b;color:#b9bed2;font-size:11px}
-    .fname{font-size:11px;line-height:1.2;height:28px;overflow:hidden}
+    .candKey{position:absolute;left:6px;top:6px;background:rgba(11,11,13,.78);color:#e8ecff;font-size:11px;font-weight:700;line-height:1;padding:4px 6px;border-radius:6px;backdrop-filter:blur(4px);pointer-events:none;letter-spacing:.02em}
+    .candCheck{position:absolute;right:6px;top:6px;background:var(--ok);color:#0b0b0d;font-size:12px;font-weight:800;line-height:1;padding:3px 6px;border-radius:6px;pointer-events:none}
+    .fname{font-size:11px;line-height:1.2;height:0;overflow:hidden}
     .delCand{position:absolute;right:5px;top:5px;background:#2a0f15;color:#ffced8;border:1px solid #5f2735;border-radius:8px;font-size:11px;padding:2px 6px}
     .footer{position:sticky;bottom:0;background:rgba(11,11,13,.95);border-top:1px solid var(--line);padding:8px;margin-top:8px}
     pre{background:#0f0f12;border:1px solid #2a2a33;border-radius:10px;padding:10px;overflow:auto;max-height:180px}
+    .otioResult{padding:4px 2px}
+    .otioLinks{display:flex;flex-direction:column;gap:6px}
+    .otioDl{display:inline-block;padding:8px 12px;border-radius:9px;border:1px solid #3a5d4a;background:#10241c;color:#9ff0d8;text-decoration:none;font-weight:600;font-size:13px;transition:background .12s ease,border-color .12s ease,transform .12s ease}
+    .otioDl:hover{background:#143a2c;border-color:#4fb88a;transform:translateY(-1px)}
+    .otioDl .muted{margin-left:6px}
     details.adv{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
     details.adv summary{cursor:pointer;color:var(--muted);font-size:12px}
     .emptyState{height:72vh;display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#101015}
@@ -98,7 +111,7 @@
     .workflowBoard{position:relative;margin:0;padding-top:0;max-width:none;min-width:560px}
     .workflowLine{position:absolute;left:12px;right:12px;top:14px;height:2px;background:#2d3240;border-radius:999px;overflow:hidden}
     .workflowLineFill{display:block;height:100%;width:0;background:linear-gradient(90deg,#14c38e,#7aa2ff);transition:width .18s ease}
-    .workflowTrack{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0;align-items:start}
+    .workflowTrack{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0;align-items:start}
     .wfStep{display:flex;flex-direction:column;align-items:center;gap:6px;color:#9197aa;font-size:12px;padding:0;text-align:center}
     .wfStep .wfLabel{font-size:11px;line-height:1.2;text-align:center}
     .wfNum{width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#1f2431;border:1px solid #39405a;color:#c6cce0;font-weight:700;font-size:11px;flex:0 0 auto}
@@ -121,14 +134,8 @@
     .recProgressTop{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#dbe5ff;margin-bottom:6px}
     .recProgressTrack{height:7px;border-radius:999px;background:#22293b;overflow:hidden}
     .recProgressFill{height:100%;width:0;background:linear-gradient(90deg,#14c38e,#7aa2ff);transition:width .18s ease}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed{grid-template-columns:minmax(640px,1fr) minmax(220px,260px);gap:6px}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .stepPanel{max-height:none;overflow:visible}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .step3Card{padding:6px}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .step3Summary{font-size:10px;line-height:1.2}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .step3TopBar{margin-top:4px}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .videoPreviewDock{grid-column:2;grid-row:1;width:min(260px,100%);max-width:260px;max-height:160px;padding:6px;overflow:hidden}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .videoPreviewHead{margin-bottom:4px}
-    .editorBody.withStepTopGrid.step3PlannerCollapsed .videoPreviewHeadText strong{font-size:11px !important}
+    .editorBody.step3PlannerCollapsed .stepPanel{max-height:none;overflow:visible}
+    .editorBody.step3PlannerCollapsed .step3Card{padding:8px}
     .dangerBtnWide{min-height:32px;padding:7px 12px;font-weight:700}
     .plannerMeta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
     .step3Card{padding:7px}
@@ -163,6 +170,14 @@
     .imageGenToolbar button.primary:disabled{opacity:.45;cursor:not-allowed;background:#2a3550;color:#7c8aa6;box-shadow:none}
     .imageGenToolbarFields{display:grid;grid-template-columns:minmax(170px,200px) minmax(220px,1fr) minmax(140px,170px) minmax(170px,200px);gap:10px;align-items:end;margin-top:10px}
     .imageGenToolbarFields .field{min-width:0}
+    .directConfigPanel{margin-top:10px;padding:10px 12px;border:1px solid #3a5b6b;border-radius:10px;background:#0d1620}
+    .directConfigPanel.hide{display:none}
+    .directConfigHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .directConfigTitle{font-weight:700;font-size:12px;color:#cfd9ff;letter-spacing:.02em;text-transform:uppercase}
+    .directConfigGrid{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(160px,1fr) minmax(160px,1fr) minmax(140px,170px);gap:10px;align-items:end}
+    .directConfigGrid .field{min-width:0}
+    @media (max-width:1100px){.directConfigGrid{grid-template-columns:1fr 1fr}}
+    @media (max-width:700px){.directConfigGrid{grid-template-columns:1fr}}
     .sectionEditRow{margin-top:8px;align-items:end;gap:8px}
     .sectionEditButtons{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
     @media (max-width:1100px){.imageGenToolbarFields{grid-template-columns:1fr 1fr;}.imageGenToolbarFields .field:nth-child(3){grid-column:1/-1}}
@@ -171,6 +186,8 @@
     .settingsBlock{margin-top:10px;background:#101017;border:1px solid #272732;border-radius:12px;padding:9px}
     .settingsTitle{font-size:13px;color:#d8d8e5;font-weight:700;margin:0 0 8px}
     .statusConsole{margin-top:8px;max-height:130px}
+    .statusConsoleSlim{margin-top:6px;padding:6px 10px;background:#0e1018;border:1px solid #232634;border-radius:8px;font-size:12px;line-height:1.35;color:#cfd9ff;white-space:pre-wrap;max-height:96px;overflow:auto}
+    .statusConsoleSlim.idle{color:#7c8aa6;background:#0c0e15}
     .imageModal{position:fixed;inset:0;background:rgba(5,8,12,.82);display:none;align-items:center;justify-content:center;z-index:120;padding:16px}
     .imageModal.show{display:flex}
     .imageModalInner{width:min(1180px,96vw);max-height:92vh;background:#0f1118;border:1px solid #2a3042;border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.52);display:flex;flex-direction:column;overflow:hidden}
@@ -246,57 +263,26 @@
     .sectionsPane{border-color:#35534a;background:linear-gradient(180deg,#101a18,#0f1415)}
     .transcriptPane strong,.sectionsPane strong{font-size:16px}
     .transcriptPane .clickHint,.sectionsPane .clickHint{margin-top:4px}
-    #editorShell.splitLayout{--uiScale:.67;gap:4px;height:calc((100vh - 74px) / var(--uiScale));min-height:760px;font-size:11px;zoom:var(--uiScale)}
-    #editorShell.splitLayout .editorMainCard{margin-top:6px !important;padding:8px;border-radius:12px}
+    #editorShell.splitLayout{gap:8px;height:calc(100vh - 84px);min-height:640px;font-size:14px}
+    #editorShell.splitLayout .editorMainCard{margin-top:6px !important;padding:10px;border-radius:12px}
     #editorShell.splitLayout .layoutShell{overflow:visible;flex:1 1 auto;min-height:0}
-    #editorShell.splitLayout .layout{gap:8px;margin-top:6px;grid-template-columns:minmax(420px,45%) minmax(520px,55%);height:100%;min-height:0}
-    #editorShell.splitLayout .card{padding:10px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.22)}
-    #editorShell.splitLayout label{font-size:10px;margin-bottom:2px;letter-spacing:.01em}
-    #editorShell.splitLayout input,#editorShell.splitLayout select,#editorShell.splitLayout textarea{font-size:11px;padding:5px 7px;border-radius:8px}
-    #editorShell.splitLayout button{font-size:11px;padding:6px 9px;border-radius:8px;min-height:28px}
-    #editorShell.splitLayout .clickHint,#editorShell.splitLayout .mini{font-size:10px;line-height:1.25}
-    #editorShell.splitLayout .transcript,#editorShell.splitLayout .slotList{flex:1 1 auto;min-height:0;height:auto;font-size:12px;overflow:auto}
-    #editorShell.splitLayout .tline{font-size:12px;line-height:1.28;padding:4px 6px;margin-bottom:2px;border-radius:6px}
-    #editorShell.splitLayout .slot{padding:7px;margin-bottom:7px;border-radius:9px}
-    #editorShell.splitLayout .snippet{font-size:10px;max-height:76px;padding:6px}
-    #editorShell.splitLayout .row{gap:6px;margin-top:6px}
-    #editorShell.splitLayout .transcriptTools{padding:6px;margin:5px 0 6px;border-radius:9px}
+    #editorShell.splitLayout .layout{gap:10px;margin-top:6px;grid-template-columns:minmax(420px,45%) minmax(520px,55%);height:100%;min-height:0}
+    #editorShell.splitLayout .card{padding:12px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.22)}
+    #editorShell.splitLayout label{font-size:12px;margin-bottom:3px;letter-spacing:.01em}
+    #editorShell.splitLayout input,#editorShell.splitLayout select,#editorShell.splitLayout textarea{font-size:13px;padding:7px 9px;border-radius:8px}
+    #editorShell.splitLayout button{font-size:13px;padding:7px 11px;border-radius:8px;min-height:32px}
+    #editorShell.splitLayout .clickHint,#editorShell.splitLayout .mini{font-size:12px;line-height:1.3}
+    #editorShell.splitLayout .transcript,#editorShell.splitLayout .slotList{flex:1 1 auto;min-height:0;height:auto;font-size:14px;overflow:auto}
+    #editorShell.splitLayout .tline{font-size:14px;line-height:1.35;padding:6px 8px;margin-bottom:3px;border-radius:7px}
+    #editorShell.splitLayout .slot{padding:10px;margin-bottom:10px;border-radius:11px}
+    #editorShell.splitLayout .row{gap:8px;margin-top:8px}
+    #editorShell.splitLayout .transcriptTools{padding:8px;margin:6px 0 8px;border-radius:10px}
     #editorShell.splitLayout .transcriptTools .toolRow{gap:6px;display:grid;grid-template-columns:minmax(120px,1.1fr) minmax(120px,1.1fr) auto auto auto auto;align-items:end}
     #editorShell.splitLayout .transcriptTools .toolRow > div{min-width:0;flex:auto}
     #editorShell.splitLayout .transcriptTools .quickRow{gap:6px;margin-top:6px;display:grid;grid-template-columns:minmax(180px,1fr) auto;align-items:end}
     #editorShell.splitLayout .historyPanel{padding:6px;margin-top:6px}
     #editorShell.splitLayout .historyList{max-height:160px}
-    #editorShell.splitLayout .editorBody.withStepTopGrid{grid-template-columns:minmax(640px,1fr) minmax(260px,320px);gap:6px}
-    #editorShell.splitLayout .editorBody.withStepTopGrid .stepPanel{max-height:calc(24vh / var(--uiScale))}
-    #editorShell.splitLayout .editorBody.withStepTopGrid .videoPreviewDock{
-      width:min(320px,100%);
-      max-width:320px;
-      max-height:calc(24vh / var(--uiScale));
-      padding:6px;
-      position:fixed;
-      right:14px;
-      top:50vh;
-      transform:translateY(-50%);
-      margin:0;
-      z-index:55;
-    }
-    #editorShell.splitLayout .editorBody.withStepTopGrid.step3PlannerCollapsed{grid-template-columns:minmax(640px,1fr) minmax(220px,260px);gap:6px}
-    #editorShell.splitLayout .editorBody.withStepTopGrid.step3PlannerCollapsed .stepPanel{max-height:none;overflow:visible}
-    #editorShell.splitLayout .editorBody.withStepTopGrid.step3PlannerCollapsed .videoPreviewDock{
-      width:min(260px,100%);
-      max-width:260px;
-      max-height:160px;
-      padding:6px;
-      overflow:hidden;
-      position:fixed;
-      right:14px;
-      top:50vh;
-      transform:translateY(-50%);
-      margin:0;
-      z-index:55;
-    }
-    #editorShell.splitLayout .videoPreviewHead{margin-bottom:4px}
-    #editorShell.splitLayout .videoPreviewHeadText strong{font-size:11px !important}
+    #editorShell.splitLayout .videoPreviewHead{margin-bottom:5px}
     #editorShell.splitLayout .videoPreviewPlayer{border-radius:8px}
     #editorShell.splitLayout .step3Card .step3PromptWrap textarea{min-height:58px;max-height:92px;font-size:11px;line-height:1.18}
     #editorShell.splitLayout .step3CompactBody{gap:6px;margin-top:5px;grid-template-columns:minmax(300px,.8fr) minmax(340px,1fr)}
@@ -314,7 +300,6 @@
       .layout{grid-template-columns:1fr}
       #editorShell{height:auto;min-height:0}
       #editorShell.splitLayout{zoom:1;height:auto;min-height:0;font-size:12px}
-      #editorShell.splitLayout .editorBody.withStepTopGrid .videoPreviewDock{position:relative;right:auto;top:auto;transform:none;margin:6px auto 8px;z-index:auto}
       .editorMainCard{flex:0 0 auto;max-height:none;overflow:visible}
       .layoutShell{overflow:visible}
       .transcript,.slotList{flex:1 1 auto;height:auto;min-height:220px;max-height:46vh;overflow:auto}
@@ -326,7 +311,6 @@
       .step3Card .step3PromptWrap textarea{max-height:220px}
       .sectionImageGenConfig{grid-template-columns:1fr;min-width:0;width:100%}
       .editorBody.withStepTopGrid{grid-template-columns:1fr}
-      .editorBody.withStepTopGrid .videoPreviewDock{grid-column:1;grid-row:auto;position:relative;top:auto;transform:none;margin:6px auto 8px}
       .editorBody.withStepTopGrid .stepPanel{grid-column:1;grid-row:auto}
       .title{position:static;background:none;backdrop-filter:none;padding:0}
       .titleMain{flex-wrap:wrap}
@@ -342,7 +326,7 @@
     @media (max-width: 820px){
       .workflowBoard{overflow:auto;padding-bottom:2px}
       .workflowLine{left:16px;right:16px;min-width:700px}
-      .workflowTrack{grid-template-columns:repeat(5,minmax(140px,1fr));min-width:720px}
+      .workflowTrack{grid-template-columns:repeat(4,minmax(140px,1fr));min-width:600px}
     }
   </style>
 </head>
@@ -361,9 +345,8 @@
           <div class="workflowTrack" id="workflowTrack">
             <div class="wfStep" data-step="1"><span class="wfNum">1</span><span class="wfLabel">Select video</span></div>
             <div class="wfStep" data-step="2"><span class="wfNum">2</span><span class="wfLabel">Generate transcript</span></div>
-            <div class="wfStep" data-step="3"><span class="wfNum">3</span><span class="wfLabel">Select image sections</span></div>
-            <div class="wfStep" data-step="4"><span class="wfNum">4</span><span class="wfLabel">Select final images</span></div>
-            <div class="wfStep" data-step="5"><span class="wfNum">5</span><span class="wfLabel">Review & OTIO</span></div>
+            <div class="wfStep" data-step="3"><span class="wfNum">3</span><span class="wfLabel">Pick sections</span></div>
+            <div class="wfStep" data-step="4"><span class="wfNum">4</span><span class="wfLabel">Generate, pick & export</span></div>
           </div>
         </div>
         <button class="secondary stepNavBtn" id="nextStepBtn">Next step ›</button>
@@ -566,14 +549,7 @@
 
           <div class="step3TopBar">
             <button class="step3AutoPrimary" id="stepAutoSectionsBtn">✨ Auto-select sections</button>
-            <button class="secondary" id="step3TogglePlannerBtn" aria-expanded="false">Show planner settings</button>
-          </div>
-          <div class="recProgress hide" id="recommendationProgressWrap">
-            <div class="recProgressTop">
-              <span id="recommendationProgressStage">Preparing…</span>
-              <strong id="recommendationProgressPct">0%</strong>
-            </div>
-            <div class="recProgressTrack"><div class="recProgressFill" id="recommendationProgressFill"></div></div>
+            <button class="secondary" id="step3TogglePlannerBtn" aria-expanded="false">Advanced</button>
           </div>
 
           <div class="step3AdvancedPanel hide" id="step3AdvancedPanel">
@@ -628,24 +604,21 @@
 
       <div class="stepPanel hide" id="stepPanel4">
         <div class="stepCard">
-          <p class="stepTitle">Select final images (live as they generate)</p>
-          <div class="mini muted" id="step4SectionsSummary">No image sections selected yet.</div>
+          <p class="stepTitle">Generate, pick & export</p>
+          <div class="mini muted" id="step4SectionsSummary">Use the toolbar to generate. Click a candidate to lock it in. Use ↻ on a card to tweak prompt and regenerate or add more. Export OTIO when you're happy.</div>
         </div>
       </div>
 
-      <div class="stepPanel hide" id="stepPanel6">
-        <div class="stepCard">
-          <p class="stepTitle">Review & export OTIO</p>
-          <div class="mini muted" id="step6ReviewSummary">Pick final images in step 4, then export your OTIO.</div>
-          <div class="stepActions">
-            <button class="secondary" id="step6GenerateOtioBtn">Generate OTIO file</button>
-          </div>
+      <div class="recProgress hide" id="recommendationProgressWrap" style="margin-top:8px">
+        <div class="recProgressTop">
+          <span id="recommendationProgressStage">Preparing…</span>
+          <strong id="recommendationProgressPct">0%</strong>
         </div>
+        <div class="recProgressTrack"><div class="recProgressFill" id="recommendationProgressFill"></div></div>
       </div>
-
-      <div class="mini muted" id="autosaveStatus" style="margin-top:6px">Autosave idle</div>
+      <div class="mini hide" id="autosaveStatus" style="margin-top:6px"></div>
       <div class="mini hide" id="workflowStatus" style="margin-top:6px"></div>
-      <pre id="resultBox" class="statusConsole">No status yet.</pre>
+      <pre id="resultBox" class="statusConsole statusConsoleSlim">Idle.</pre>
     </div>
 
     <details class="adv" hidden>
@@ -703,7 +676,6 @@
             <video id="videoPreviewPlayer" class="videoPreviewPlayer" controls preload="metadata" playsinline></video>
           </div>
           <div class="mini muted" id="manualRangeLabel">Manual range: none</div>
-          <div class="mini muted" id="transcriptSourceLabel">Source: not yet transcribed</div>
         </div>
 
         <div class="transcriptTopRight">
@@ -748,7 +720,7 @@
           <strong>Image sections</strong>
           <span class="sectionsProgressPill" id="sectionsProgressPill"></span>
         </div>
-        <div class="clickHint">Click a card (or Jump preview) to seek video. Double-click a thumbnail to enlarge.</div>
+        <div class="clickHint">Click a card to seek video and highlight its transcript. Double-click a thumbnail to enlarge.</div>
       </div>
 
       <div class="imageGenToolbar hide" id="imageGenToolbar">
@@ -764,7 +736,10 @@
             <label for="step3ImageEngine">Engine</label>
             <select id="step3ImageEngine">
               <option value="pool">Pool only (existing assets)</option>
-              <option value="openclaw">OpenClaw image_generate</option>
+              <option value="openclaw">OpenClaw image_generate (gateway)</option>
+              <option value="openai-direct">OpenAI direct (your key)</option>
+              <option value="fal-direct">fal.ai direct (your key)</option>
+              <option value="custom">Custom endpoint</option>
             </select>
           </div>
           <div class="field">
@@ -787,6 +762,35 @@
               <option value="force">Force re-generate (clear &amp; redo)</option>
             </select>
           </div>
+        </div>
+
+        <div class="directConfigPanel hide" id="directConfigPanel">
+          <div class="directConfigHead">
+            <span class="directConfigTitle" id="directConfigTitle">Direct API configuration</span>
+            <button class="linkBtn" id="directConfigResetUrlBtn" title="Reset URL to preset default for this provider">Reset URL</button>
+          </div>
+          <div class="directConfigGrid">
+            <div class="field">
+              <label for="directUrl">Endpoint URL</label>
+              <input id="directUrl" placeholder="https://api.openai.com/v1/images/generations" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="directModel">Model</label>
+              <input id="directModel" placeholder="gpt-image-1" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="directApiKey">API key</label>
+              <input id="directApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+            </div>
+            <div class="field" id="directSchemaWrap" style="max-width:170px">
+              <label for="directSchema">Response schema</label>
+              <select id="directSchema" title="How to parse the response. OpenAI: {data:[{b64_json|url}]}. fal: {images:[{url}]}.">
+                <option value="openai">OpenAI-style</option>
+                <option value="fal">fal-style</option>
+              </select>
+            </div>
+          </div>
+          <div class="mini muted" id="directConfigHint">Saved with your project. API key is stored in plain text on this machine.</div>
         </div>
       </div>
 
@@ -915,6 +919,21 @@ const step3ImageEngineEl = document.getElementById('step3ImageEngine');
 const step3ImageModelEl = document.getElementById('step3ImageModel');
 const step3SectionsLimitEl = document.getElementById('step3SectionsLimit');
 const step3GenModeEl = document.getElementById('step3GenMode');
+const directConfigPanelEl = document.getElementById('directConfigPanel');
+const directConfigTitleEl = document.getElementById('directConfigTitle');
+const directConfigHintEl = document.getElementById('directConfigHint');
+const directConfigResetUrlBtnEl = document.getElementById('directConfigResetUrlBtn');
+const directUrlEl = document.getElementById('directUrl');
+const directModelEl = document.getElementById('directModel');
+const directApiKeyEl = document.getElementById('directApiKey');
+const directSchemaEl = document.getElementById('directSchema');
+const directSchemaWrapEl = document.getElementById('directSchemaWrap');
+
+const DIRECT_PROVIDER_DEFAULTS = {
+  'openai-direct': { key: 'openai', label: 'OpenAI direct', url: 'https://api.openai.com/v1/images/generations', model: 'gpt-image-1', schema: 'openai' },
+  'fal-direct': { key: 'fal', label: 'fal.ai direct', url: 'https://fal.run/fal-ai/flux/dev', model: '', schema: 'fal' },
+  'custom': { key: 'custom', label: 'Custom endpoint', url: '', model: '', schema: 'openai' },
+};
 const step3AutoPromptEl = document.getElementById('step3AutoPrompt');
 const step3SectionGapMaxMinutesEl = document.getElementById('step3SectionGapMaxMinutes');
 const step3SectionGapMinMinutesEl = document.getElementById('step3SectionGapMinMinutes');
@@ -1034,7 +1053,11 @@ async function getJson(url, opts){
 }
 
 function setAutosaveStatus(msg){
-  autosaveStatusEl.textContent = msg;
+  if (!autosaveStatusEl) return;
+  const txt = String(msg || '');
+  autosaveStatusEl.textContent = txt;
+  const hide = !txt || /^autosave (idle|on)/i.test(txt);
+  autosaveStatusEl.classList.toggle('hide', hide);
 }
 
 function defaultProjectName(){
@@ -1127,6 +1150,11 @@ function defaultWorkflowConfigState(){
       size: '1024x1024',
       aspectRatio: '',
       systemPromptTemplate: '',
+      direct: {
+        openai: { url: 'https://api.openai.com/v1/images/generations', model: 'gpt-image-1', apiKey: '' },
+        fal: { url: 'https://fal.run/fal-ai/flux/dev', model: '', apiKey: '' },
+        custom: { url: '', model: '', apiKey: '', schema: 'openai' },
+      },
     },
   };
 }
@@ -1174,7 +1202,9 @@ function normalizeWorkflowConfigState(raw){
   base.recommendations.sectionDurationMaxSeconds = Math.max(base.recommendations.sectionDurationMinSeconds + 0.5, Math.min(60, Number.isFinite(durationMaxRaw) ? durationMaxRaw : 8));
 
   const i = cfg.images || {};
-  base.images.engine = String(i.engine || 'pool').toLowerCase() === 'openclaw' ? 'openclaw' : 'pool';
+  const allowedImgEngines = new Set(['pool', 'openclaw', 'openai-direct', 'fal-direct', 'custom']);
+  const reqEngine = String(i.engine || 'pool').toLowerCase();
+  base.images.engine = allowedImgEngines.has(reqEngine) ? reqEngine : 'pool';
   base.images.model = String(i.model || '').trim();
   base.images.sessionMode = String(i.sessionMode || 'main').toLowerCase() === 'main' ? 'main' : 'ephemeral';
   base.images.sessionKey = String(i.sessionKey || base.images.sessionKey).trim();
@@ -1182,6 +1212,22 @@ function normalizeWorkflowConfigState(raw){
   base.images.size = String(i.size || '1024x1024').trim() || '1024x1024';
   base.images.aspectRatio = String(i.aspectRatio || '').trim();
   base.images.systemPromptTemplate = String(i.systemPromptTemplate ?? '');
+  const d = (i.direct && typeof i.direct === 'object') ? i.direct : {};
+  const baseD = base.images.direct;
+  const mergeDirect = (key, defaults) => {
+    const inp = (d[key] && typeof d[key] === 'object') ? d[key] : {};
+    return {
+      url: String(inp.url ?? defaults.url ?? '').trim() || defaults.url || '',
+      model: String(inp.model ?? defaults.model ?? '').trim(),
+      apiKey: String(inp.apiKey ?? ''),
+      ...(key === 'custom' ? { schema: (String(inp.schema ?? 'openai').toLowerCase() === 'fal' ? 'fal' : 'openai') } : {}),
+    };
+  };
+  base.images.direct = {
+    openai: mergeDirect('openai', baseD.openai),
+    fal: mergeDirect('fal', baseD.fal),
+    custom: mergeDirect('custom', baseD.custom),
+  };
 
   return base;
 }
@@ -1393,6 +1439,7 @@ function renderWorkflowConfigForm(){
   syncImageSessionKeyField();
   wfImgCountEl.value = String(wf.images.countPerSection || 2);
   wfImgSizeEl.value = wf.images.size || '1024x1024';
+  if (typeof syncDirectConfigUI === 'function') syncDirectConfigUI();
 }
 
 function collectWorkflowConfigFromForm(){
@@ -1465,6 +1512,27 @@ function collectWorkflowConfigFromForm(){
       systemPromptTemplate: String(state.workflow?.images?.systemPromptTemplate || ''),
     },
   });
+}
+
+function syncDirectConfigUI() {
+  const engine = step3ImageEngineEl?.value || 'pool';
+  const def = DIRECT_PROVIDER_DEFAULTS[engine];
+  const showPanel = !!def;
+  if (directConfigPanelEl) directConfigPanelEl.classList.toggle('hide', !showPanel);
+  if (!showPanel) return;
+  if (directConfigTitleEl) directConfigTitleEl.textContent = `${def.label} — endpoint, model, key`;
+  if (directSchemaWrapEl) directSchemaWrapEl.classList.toggle('hide', engine !== 'custom');
+  state.workflow = normalizeWorkflowConfigState(state.workflow || {});
+  const cfg = state.workflow.images.direct[def.key] || {};
+  if (directUrlEl) directUrlEl.value = cfg.url || def.url || '';
+  if (directModelEl) directModelEl.value = cfg.model || def.model || '';
+  if (directApiKeyEl) directApiKeyEl.value = cfg.apiKey || '';
+  if (directSchemaEl) directSchemaEl.value = (engine === 'custom' ? (cfg.schema || 'openai') : def.schema);
+  if (directConfigHintEl) {
+    if (engine === 'openai-direct') directConfigHintEl.textContent = `Calling ${def.url} directly with your OpenAI key. Models: gpt-image-1, dall-e-3.`;
+    else if (engine === 'fal-direct') directConfigHintEl.textContent = `Calling fal.run directly. The URL is the model endpoint (e.g. fal-ai/flux/dev). Model field is optional.`;
+    else directConfigHintEl.textContent = `Custom endpoint. Pick a schema: OpenAI {data:[{b64_json|url}]} or fal {images:[{url}]}.`;
+  }
 }
 
 function renderGatewayModels(){
@@ -1637,14 +1705,10 @@ function inferWorkflowStep(){
   const hasTranscript = (state.transcript || []).length > 0;
   const hasSections = (state.sets || []).length > 0;
   const sectionsConfigured = (state.sets || []).every((s) => String(s.styleKey || '').trim() && String(s.prompt || '').trim());
-  const hasCandidates = (state.sets || []).some((s) => Array.isArray(s.candidates) && s.candidates.length > 0);
-  const hasSelectedCandidates = (state.sets || []).some((s) => !!s.selectedCandidateId);
   if (!hasVideo) return 1;
-  if (!hasTranscript) return state.step1Proceed ? 2 : 1;
+  if (!hasTranscript) return 2;
   if (!hasSections || !state.sectionsConfirmed || !sectionsConfigured) return 3;
-  if (state.activeRecommendationJobId || !hasCandidates) return 4;
-  if (!hasSelectedCandidates) return 4;
-  return 5;
+  return 4;
 }
 
 function renderWorkflowTrack(step){
@@ -1668,8 +1732,7 @@ function setVisibleStepPanel(step){
   stepPanel1El.classList.toggle('hide', step !== 1);
   stepPanel2El.classList.toggle('hide', step !== 2);
   stepPanel3El.classList.toggle('hide', step !== 3);
-  stepPanel4El.classList.toggle('hide', step !== 4);
-  if (stepPanel6El) stepPanel6El.classList.toggle('hide', step !== 5);
+  if (stepPanel4El) stepPanel4El.classList.toggle('hide', step !== 4);
   stepPanel5El.classList.toggle('hide', step < 3);
 }
 
@@ -1683,12 +1746,12 @@ function nextStepLabel(step, ctx = {}) {
   const hasVideo = !!ctx.hasVideo;
   const hasSections = !!ctx.hasSections;
   const allSectionsConfigured = !!ctx.allSectionsConfigured;
+  const hasCandidates = !!ctx.hasCandidates;
   const hasSelectedCandidates = !!ctx.hasSelectedCandidates;
 
   if (s <= 1) return hasVideo ? 'Go to transcription' : 'Select video first';
   if (s === 2) return 'Generate transcript';
-  if (s === 3) return (!hasSections || !allSectionsConfigured) ? 'Configure image sections first' : 'Generate images';
-  if (s === 4) return hasSelectedCandidates ? 'Review & OTIO' : 'Select final image first';
+  if (s === 3) return (!hasSections || !allSectionsConfigured) ? 'Configure sections first' : 'Confirm sections';
   return 'Done';
 }
 
@@ -1739,9 +1802,11 @@ function updateWorkflowUI(){
     : (hasCandidates
       ? ' Images are ready to select. You can regenerate if needed.'
       : ' Start generation from step 3 to stream results here.');
-  step4SectionsSummaryEl.textContent = hasSections
-    ? `${state.sets.length} image sections selected. Route: ${imgRoute}. Model: ${imgModelLabel}.${step4StateText}`
-    : `No image sections selected yet. Route: ${imgRoute}. Model: ${imgModelLabel}.`;
+  if (step4SectionsSummaryEl) {
+    step4SectionsSummaryEl.textContent = hasSections
+      ? `${state.sets.length} image sections selected. Route: ${imgRoute}. Model: ${imgModelLabel}.${step4StateText}`
+      : `No image sections selected yet. Route: ${imgRoute}. Model: ${imgModelLabel}.`;
+  }
   if (step6ReviewSummaryEl) {
     step6ReviewSummaryEl.textContent = hasSelectedCandidates
       ? `${state.sets.filter((s) => !!s.selectedCandidateId).length} section image(s) selected. Review timing + composition, then export OTIO.`
@@ -1750,11 +1815,10 @@ function updateWorkflowUI(){
 
   let msg = 'Choose a video.';
   if (state.uiStep === 2) msg = 'Generate the transcript for this video.';
-  if (state.uiStep === 3) msg = 'Select sections, then confirm.';
+  if (state.uiStep === 3) msg = 'Pick the transcript ranges you want images for, then confirm.';
   if (state.uiStep === 4) msg = state.activeRecommendationJobId
-    ? 'Images are generating now. Select final images as they stream in.'
-    : 'Select final images or regenerate options.';
-  if (state.uiStep === 5) msg = 'Review selected images, then generate OTIO.';
+    ? 'Images are generating. Tap any candidate to pick it as final. Export OTIO when ready.'
+    : 'Generate, regenerate, add more, or pick. Export OTIO when at least one final is picked.';
   workflowStatusEl.textContent = msg;
 
   stepGenerateTranscriptBtnEl.disabled = !hasVideo || state.uiStep !== 2 || !!state.workflowLockStep;
@@ -1771,7 +1835,7 @@ function updateWorkflowUI(){
   if (step3SectionDurationMinEl) step3SectionDurationMinEl.disabled = state.uiStep !== 3 || !!state.workflowLockStep;
   if (step3SectionDurationMaxEl) step3SectionDurationMaxEl.disabled = state.uiStep !== 3 || !!state.workflowLockStep;
   stepAutoSectionsBtnEl.disabled = !hasTranscript || state.uiStep !== 3 || !!state.workflowLockStep;
-  const toolbarVisible = state.uiStep === 3 || state.uiStep === 4;
+  const toolbarVisible = state.uiStep === 4;
   const toolbarUsable = toolbarVisible && hasSections && allSectionsConfigured && !state.workflowLockStep && hasTranscript;
   stepConfirmSectionsBtnEl.disabled = !toolbarUsable;
   const genMode = String(step3GenModeEl?.value || 'fill');
@@ -1780,7 +1844,7 @@ function updateWorkflowUI(){
     stepConfirmSectionsBtnEl.textContent = 'Generating…';
   } else if (genMode === 'force') {
     stepConfirmSectionsBtnEl.textContent = hasCandidates ? 'Re-generate (clear & redo)' : 'Generate (force)';
-  } else if (state.uiStep === 4 && hasCandidates) {
+  } else if (hasCandidates) {
     stepConfirmSectionsBtnEl.textContent = 'Fill missing images';
   } else {
     stepConfirmSectionsBtnEl.textContent = 'Start generating images';
@@ -1806,36 +1870,37 @@ function updateWorkflowUI(){
   if (step3SectionsLimitEl) step3SectionsLimitEl.disabled = !toolbarVisible || !!state.workflowLockStep || imgEngineLabel !== 'openclaw';
   if (step3GenModeEl) step3GenModeEl.disabled = !toolbarVisible || !!state.workflowLockStep || imgEngineLabel !== 'openclaw';
 
-  document.getElementById('addSectionBtn').disabled = !hasTranscript || state.uiStep !== 3 || !addStyleChosen;
-  document.getElementById('clearManualRangeBtn').disabled = !hasTranscript || state.uiStep !== 3;
+  document.getElementById('addSectionBtn').disabled = !hasTranscript || state.uiStep < 3 || state.uiStep > 4 || !addStyleChosen;
+  document.getElementById('clearManualRangeBtn').disabled = !hasTranscript || state.uiStep < 3 || state.uiStep > 4;
   document.getElementById('clearSectionsBtn').disabled = !hasSections || state.uiStep !== 3;
-  document.getElementById('generateOtio').disabled = state.uiStep !== 5 || !hasSelectedCandidates || !!state.workflowLockStep;
-  if (step6GenerateOtioBtnEl) step6GenerateOtioBtnEl.disabled = state.uiStep !== 5 || !hasSelectedCandidates || !!state.workflowLockStep;
-  if (otioActionWrapEl) otioActionWrapEl.classList.toggle('hide', state.uiStep !== 5);
+  document.getElementById('generateOtio').disabled = state.uiStep !== 4 || !hasSelectedCandidates || !!state.workflowLockStep;
+  if (step6GenerateOtioBtnEl) step6GenerateOtioBtnEl.disabled = state.uiStep !== 4 || !hasSelectedCandidates || !!state.workflowLockStep;
+  if (otioActionWrapEl) otioActionWrapEl.classList.toggle('hide', state.uiStep !== 4);
   if (deleteProjectBtnEl) deleteProjectBtnEl.disabled = !state.selectedProjectId;
   if (nextStepBtnEl) {
     nextStepBtnEl.textContent = `${nextStepLabel(state.uiStep, {
       hasVideo,
       hasSections,
       allSectionsConfigured,
+      hasCandidates,
       hasSelectedCandidates,
     })} ›`;
-    let canNext = state.uiStep < 5 && !state.workflowLockStep;
+    let canNext = state.uiStep < 4 && !state.workflowLockStep;
     if (state.uiStep === 1) canNext = hasVideo;
     if (state.uiStep === 3 && (!hasSections || !allSectionsConfigured)) canNext = false;
-    if (state.uiStep === 4 && !hasSelectedCandidates) canNext = false;
     nextStepBtnEl.disabled = !canNext;
   }
 
   const canEditSections = state.uiStep === 3;
-  const canSetSide = canEditSections || state.uiStep >= 4;
-  if (sectionEditControlsEl) sectionEditControlsEl.classList.toggle('hide', !canEditSections);
+  const canStructureSections = state.uiStep === 3 || state.uiStep === 4;
+  const canSetSide = canStructureSections;
+  if (sectionEditControlsEl) sectionEditControlsEl.classList.toggle('hide', !canStructureSections);
   if (sectionClearRowEl) sectionClearRowEl.classList.toggle('hide', !canEditSections);
-  slotListEl.querySelectorAll('select[data-act="side-select"]').forEach((el) => {
+  slotListEl.querySelectorAll('button[data-act="side-toggle"]').forEach((el) => {
     el.disabled = !canSetSide;
   });
   slotListEl.querySelectorAll('button[data-act="del-set"]').forEach((el) => {
-    el.classList.toggle('hide', !canEditSections);
+    el.classList.toggle('hide', !canStructureSections);
   });
 
   updateTranscriptToolsVisibility();
@@ -1846,25 +1911,14 @@ async function goToPreviousWorkflowStep(){
   const step = inferWorkflowStep();
   if (step <= 1) return;
 
-  if (step === 5) {
-    const ok = window.confirm('Go back to final image selection and clear current selections?');
-    if (!ok) return;
-    state.sets = (state.sets || []).map((s) => ({ ...s, selectedCandidateId: null }));
-    renderSets();
-    markDirty();
-    resultBoxEl.textContent = 'Back to final image selection.';
-    return;
-  }
-
   if (step === 4) {
-    const ok = window.confirm('Go back to image section selection and clear generated candidates?');
+    const ok = window.confirm('Go back to section selection? Existing candidates are kept; you can edit sections and re-run "Fill missing".');
     if (!ok) return;
     state.activeRecommendationJobId = null;
     state.sectionsConfirmed = false;
-    state.sets = (state.sets || []).map((s) => ({ ...s, candidates: [], selectedCandidateId: null }));
     renderSets();
     markDirty();
-    resultBoxEl.textContent = 'Back to image section selection. Candidates cleared.';
+    resultBoxEl.textContent = 'Back to section selection.';
     return;
   }
 
@@ -1905,7 +1959,7 @@ async function goToPreviousWorkflowStep(){
 
 async function goToNextWorkflowStep(){
   const step = inferWorkflowStep();
-  if (step >= 5) return;
+  if (step >= 4) return;
 
   if (step === 1) {
     if (!hasVideoSelected()) {
@@ -1928,24 +1982,11 @@ async function goToNextWorkflowStep(){
       resultBoxEl.textContent = 'Add at least one image section first.';
       return;
     }
-    if (state.activeRecommendationJobId) {
-      resultBoxEl.textContent = 'Image generation is already running.';
-      return;
-    }
     state.sectionsConfirmed = true;
     markDirty();
     updateWorkflowUI();
-    await generateSuggestions();
+    resultBoxEl.textContent = `Sections confirmed (${state.sets.length}). Use the toolbar to generate, pick, and export.`;
     return;
-  }
-
-  if (step === 4) {
-    const hasSelectedCandidates = (state.sets || []).some((s) => !!s.selectedCandidateId);
-    if (!hasSelectedCandidates) {
-      resultBoxEl.textContent = 'Select at least one final image first.';
-      return;
-    }
-    updateWorkflowUI();
   }
 }
 
@@ -2300,6 +2341,164 @@ function updateTranscriptToolsVisibility(){
   renderTranscriptHistoryPanel();
 }
 
+let autoSideVideoEl = null;
+let autoSidePassRunning = false;
+
+function ensureAutoSideVideo(srcUrl){
+  if (!autoSideVideoEl) {
+    autoSideVideoEl = document.createElement('video');
+    autoSideVideoEl.muted = true;
+    autoSideVideoEl.playsInline = true;
+    autoSideVideoEl.preload = 'auto';
+    autoSideVideoEl.crossOrigin = 'anonymous';
+    autoSideVideoEl.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(autoSideVideoEl);
+  }
+  if (autoSideVideoEl.src !== srcUrl) {
+    autoSideVideoEl.src = srcUrl;
+  }
+  return autoSideVideoEl;
+}
+
+function waitForVideoMetadata(v, timeoutMs = 4000){
+  return new Promise((resolve) => {
+    if (v.readyState >= 1) { resolve(true); return; }
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; cleanup(); resolve(ok); };
+    const onMeta = () => finish(true);
+    const onErr = () => finish(false);
+    const cleanup = () => {
+      v.removeEventListener('loadedmetadata', onMeta);
+      v.removeEventListener('error', onErr);
+    };
+    v.addEventListener('loadedmetadata', onMeta);
+    v.addEventListener('error', onErr);
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+function seekVideoTo(v, t, timeoutMs = 2500){
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; cleanup(); resolve(ok); };
+    const onSeeked = () => finish(true);
+    const onErr = () => finish(false);
+    const cleanup = () => {
+      v.removeEventListener('seeked', onSeeked);
+      v.removeEventListener('error', onErr);
+    };
+    v.addEventListener('seeked', onSeeked);
+    v.addEventListener('error', onErr);
+    try { v.currentTime = Math.max(0, Number(t) || 0); } catch { finish(false); return; }
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+function speakerSideFromFrame(v){
+  try {
+    const w = 160, h = 90;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(v, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const halfW = w >> 1;
+    let leftSkin = 0, rightSkin = 0;
+    let leftVar = 0, rightVar = 0;
+    let leftSum = 0, rightSum = 0, leftN = 0, rightN = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const lum = (r * 0.299 + g * 0.587 + b * 0.114);
+        const isSkin = (r > 80 && g > 40 && b > 20
+          && r > g && r > b
+          && (r - g) > 12 && Math.abs(r - g) < 90
+          && (Math.max(r,g,b) - Math.min(r,g,b)) > 14);
+        if (x < halfW) { leftSum += lum; leftN++; if (isSkin) leftSkin++; }
+        else { rightSum += lum; rightN++; if (isSkin) rightSkin++; }
+      }
+    }
+    const leftMean = leftSum / Math.max(1, leftN);
+    const rightMean = rightSum / Math.max(1, rightN);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const lum = (r * 0.299 + g * 0.587 + b * 0.114);
+        if (x < halfW) { leftVar += (lum - leftMean) * (lum - leftMean); }
+        else { rightVar += (lum - rightMean) * (lum - rightMean); }
+      }
+    }
+    leftVar /= Math.max(1, leftN);
+    rightVar /= Math.max(1, rightN);
+
+    const skinScoreL = leftSkin / Math.max(1, leftN);
+    const skinScoreR = rightSkin / Math.max(1, rightN);
+    const skinMargin = Math.abs(skinScoreL - skinScoreR);
+    const varMargin = Math.abs(leftVar - rightVar) / Math.max(1, Math.max(leftVar, rightVar));
+
+    let speaker = null;
+    if (skinMargin > 0.012) {
+      speaker = skinScoreL > skinScoreR ? 'left' : 'right';
+    } else if (varMargin > 0.18) {
+      speaker = leftVar > rightVar ? 'left' : 'right';
+    }
+    if (!speaker) return null;
+    return speaker === 'left' ? 'right' : 'left';
+  } catch {
+    return null;
+  }
+}
+
+async function runAutoSidePass({ force = false } = {}){
+  if (autoSidePassRunning) return;
+  if (!state.rawVideoPath) return;
+  const sets = state.sets || [];
+  if (!sets.length) return;
+  const targets = sets.filter(s => !s.sideUserOverride && (force || !s.sideAutoFromFrame));
+  if (!targets.length) return;
+
+  autoSidePassRunning = true;
+  const videoUrl = videoPreviewUrlForPath(state.rawVideoPath);
+  const v = ensureAutoSideVideo(videoUrl);
+  setTranscriptToolStatus(`Auto-detecting overlay side from video frames (0/${targets.length})…`);
+
+  try {
+    const okMeta = await waitForVideoMetadata(v, 5000);
+    if (!okMeta) { setTranscriptToolStatus(''); return; }
+
+    let touched = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      const startSec = parseTcToSeconds(s.startTc || '00:00:00');
+      if (!Number.isFinite(startSec)) continue;
+      const sampleAt = Math.max(0, startSec + 1.2);
+      const ok = await seekVideoTo(v, sampleAt, 2500);
+      if (!ok) continue;
+      await new Promise(r => setTimeout(r, 40));
+      const side = speakerSideFromFrame(v);
+      if (side === 'left' || side === 'right') {
+        s.sideSuggested = side;
+        if (!s.sideUserOverride) s.sideSelected = side;
+        s.sideAutoFromFrame = true;
+        touched++;
+      }
+      setTranscriptToolStatus(`Auto-detecting overlay side from video frames (${i + 1}/${targets.length})…`);
+    }
+
+    if (touched > 0) {
+      renderSets();
+      markDirty();
+      setTranscriptToolStatus(`Auto-detected overlay side for ${touched} section${touched === 1 ? '' : 's'}.`);
+    } else {
+      setTranscriptToolStatus('');
+    }
+  } finally {
+    autoSidePassRunning = false;
+  }
+}
+
 function seekVideoToTranscriptLine(idx){
   if (!videoPreviewPlayerEl || !videoPreviewPlayerEl.src) return false;
   const line = (state.transcript || [])[idx];
@@ -2330,14 +2529,22 @@ function seekVideoToTranscriptLine(idx){
   }
 }
 
+function thumbUrl(rawUrl){
+  const u = String(rawUrl || '');
+  if (!u) return '';
+  if (u.indexOf('/api/image?') === -1) return u;
+  return u + (u.indexOf('size=') === -1 ? '&size=thumb' : '');
+}
+
 function candidateCard(setId, c, selectedId, idx = 0){
   const isSel = c.id === selectedId;
   const pickable = state.uiStep >= 4;
   const friendlyLabel = `Option ${idx + 1}`;
+  const hotkey = (idx >= 0 && idx <= 8) ? String(idx + 1) : '';
   return `<div class="cand ${isSel ? 'selected' : ''}" data-act="pick-cand" data-set="${setId}" data-cid="${esc(c.id)}" ${pickable ? `role="button" tabindex="0" title="Select ${esc(friendlyLabel)} (${esc(c.name)})"` : ''}>
-    <img class="thumb" src="${esc(c.url)}" alt="${esc(friendlyLabel)}" loading="lazy" data-act="preview-cand" data-set="${setId}" data-cid="${esc(c.id)}" ondblclick="window.__podpicsOpenCandidatePreview && window.__podpicsOpenCandidatePreview('${esc(setId)}','${esc(c.id)}')" onerror="this.classList.add('thumbBroken');this.alt='Missing image';" />
-    <div class="fname" title="${esc(c.name)}">${esc(friendlyLabel)}</div>
-    ${pickable && isSel ? '<div class="mini" style="color:#9ff0d8;font-weight:600">Selected</div>' : ''}
+    <img class="thumb" src="${esc(thumbUrl(c.url))}" alt="${esc(friendlyLabel)}" loading="lazy" decoding="async" data-act="preview-cand" data-set="${setId}" data-cid="${esc(c.id)}" ondblclick="window.__podpicsOpenCandidatePreview && window.__podpicsOpenCandidatePreview('${esc(setId)}','${esc(c.id)}')" onerror="this.dataset.fallback||(this.dataset.fallback='1',this.src='${esc(c.url)}');this.classList.add('thumbBroken');this.alt='Missing image';" />
+    ${hotkey ? `<span class="candKey">${hotkey}</span>` : ''}
+    ${isSel ? '<span class="candCheck" title="Selected">✓</span>' : ''}
   </div>`;
 }
 
@@ -2390,58 +2597,86 @@ function imageGenMetaHtml(set = {}) {
 
 function renderSets(){
   const canEditSections = state.uiStep === 3;
+  const canStructureSections = state.uiStep === 3 || state.uiStep === 4;
   const showCandidates = state.uiStep >= 4;
   const canPickCandidates = state.uiStep >= 4;
   const hasPreviewVideo = !!String(state.rawVideoPath || '').trim();
 
   slotListEl.innerHTML = state.sets.map((s, ix)=>`
-    <div class="slot slotClickable ${Array.isArray(state.selectedLineRange) && Array.isArray(s.lineRange) && Number(state.selectedLineRange[0]) === Number(s.lineRange[0]) && Number(state.selectedLineRange[1]) === Number(s.lineRange[1]) ? 'slotActive' : ''}" data-set-id="${s.id}" title="Click section card to jump video preview to this section start">
+    <div class="slot slotClickable ${Array.isArray(state.selectedLineRange) && Array.isArray(s.lineRange) && Number(state.selectedLineRange[0]) === Number(s.lineRange[0]) && Number(state.selectedLineRange[1]) === Number(s.lineRange[1]) ? 'slotActive' : ''}" data-set-id="${s.id}" title="Click to seek video and highlight transcript">
       <div class="slotHead">
         <div>
           <div class="tc">${esc(s.startTc)} - ${esc(s.endTc)}</div>
           <div style="margin-top:5px;font-weight:700">${esc(s.title || `Section ${ix + 1}`)}</div>
         </div>
         <div class="row" style="margin:0">
-          ${Array.isArray(state.selectedLineRange) && Array.isArray(s.lineRange) && Number(state.selectedLineRange[0]) === Number(s.lineRange[0]) && Number(state.selectedLineRange[1]) === Number(s.lineRange[1]) ? '<span class="tag" style="background:#154d3a;border-color:#2ecf95;color:#d9fff0">Selected</span>' : ''}
-          <button class="secondary" data-act="jump-set" data-set="${s.id}" ${hasPreviewVideo ? '' : 'disabled'} title="Jump video preview to this section start">Jump preview</button>
-          <label class="mini muted" style="margin:0">Side</label>
-          <select data-act="side-select" data-set="${s.id}" style="width:110px" ${canEditSections || canPickCandidates ? '' : 'disabled'}>
-            <option value="left" ${(s.sideSelected || s.sideSuggested) === 'left' ? 'selected' : ''}>Left</option>
-            <option value="right" ${(s.sideSelected || s.sideSuggested) !== 'left' ? 'selected' : ''}>Right</option>
-          </select>
-          ${canEditSections ? `<button class="secondary" data-act="del-set" data-set="${s.id}">Remove</button>` : ''}
+          ${(() => {
+            const side = ((s.sideSelected || s.sideSuggested) === 'left') ? 'left' : 'right';
+            const disabled = (canEditSections || canPickCandidates) ? '' : 'disabled';
+            return `<button class="sideToggle" data-act="side-toggle" data-set="${s.id}" data-side="${side}" ${disabled} title="Click to switch side (currently ${side})">${side === 'left' ? '◀ Left' : 'Right ▶'}</button>`;
+          })()}
+          ${state.uiStep >= 4 ? `<button class="secondary" data-act="regen-section" data-set="${s.id}" title="Tweak prompt &amp; generate more for this section">↻ More</button>` : ''}
+          ${canStructureSections ? `<button class="secondary" data-act="del-set" data-set="${s.id}" title="Remove this section">Remove</button>` : ''}
         </div>
       </div>
 
-      <div class="snippet">${esc(s.transcriptSnippet)}</div>
-
-      <div class="grid2" style="margin-top:8px">
-        <div>
-          <label class="mini muted" style="margin:0 0 4px 0">Style</label>
-          <select data-act="style" data-set="${s.id}" ${canEditSections ? '' : 'disabled'}>
-            ${styleOptionsHtml(s.styleKey || '', { includeBlank: true, blankLabel: 'Choose style…' })}
-          </select>
+      ${canEditSections ? `
+        <div class="grid2" style="margin-top:8px">
+          <div>
+            <label class="mini muted" style="margin:0 0 4px 0">Style</label>
+            <select data-act="style" data-set="${s.id}">
+              ${styleOptionsHtml(s.styleKey || '', { includeBlank: true, blankLabel: 'Choose style…' })}
+            </select>
+          </div>
+          <div>
+            <label class="mini muted" style="margin:0 0 4px 0">Images for this section</label>
+            <input type="number" min="1" max="6" step="1" data-act="count" data-set="${s.id}" value="${Number(s.defaultCount || 2)}" />
+          </div>
         </div>
-        <div>
-          <label class="mini muted" style="margin:0 0 4px 0">Images for this section</label>
-          <input type="number" min="1" max="6" step="1" data-act="count" data-set="${s.id}" value="${Number(s.defaultCount || 2)}" ${canEditSections ? '' : 'disabled'} />
+        <div style="margin-top:8px">
+          <label class="mini muted" style="margin:0 0 4px 0">Image prompt for this section</label>
+          <textarea data-act="prompt" data-set="${s.id}" rows="2">${esc(s.prompt || '')}</textarea>
         </div>
-      </div>
-
-      <div style="margin-top:8px">
-        <label class="mini muted" style="margin:0 0 4px 0">Image prompt for this section</label>
-        <textarea data-act="prompt" data-set="${s.id}" rows="2" ${canEditSections ? '' : 'readonly'}>${esc(s.prompt || '')}</textarea>
-      </div>
+      ` : ''}
 
       ${showCandidates ? `<div class="candGrid">${(s.candidates || []).map((c, cIx)=>candidateCard(s.id,c,s.selectedCandidateId,cIx)).join('')}</div>` : ''}
-      ${showCandidates ? imageGenMetaHtml(s) : ''}
       ${showCandidates && s.error ? `<div class="mini" style="margin-top:6px;color:#ff8e8e">Generation note: ${esc(String(s.error || ''))}</div>` : ''}
       ${showCandidates && !(s.candidates || []).length ? '<div class="mini muted" style="margin-top:8px">Generating…</div>' : ''}
+
+      ${showCandidates ? `
+        <div class="sectionRegenPanel ${state.openRegenSectionId === s.id ? '' : 'hide'}" data-section-regen="${s.id}">
+          <label class="mini muted" style="margin:6px 0 4px 0">Image prompt</label>
+          <textarea data-act="regen-prompt" data-set="${s.id}" rows="3">${esc(s.prompt || '')}</textarea>
+          <div class="row" style="margin-top:6px;gap:8px;align-items:end">
+            <div style="width:96px"><label class="mini muted">Count</label><input data-act="regen-count" data-set="${s.id}" type="number" min="1" max="6" value="${Number(s.defaultCount || 2)}" /></div>
+            <button class="secondary" data-act="regen-fire" data-set="${s.id}" data-mode="append">+ Add more</button>
+            <button class="secondary" data-act="regen-fire" data-set="${s.id}" data-mode="replace">Replace current</button>
+            <button class="linkBtn" data-act="regen-cancel" data-set="${s.id}">Cancel</button>
+          </div>
+        </div>
+      ` : ''}
     </div>
   `).join('');
 
   refreshSummary();
   refreshTopMeta();
+  maybeScheduleAutoSidePass();
+}
+
+let autoSideScheduleTimer = null;
+function maybeScheduleAutoSidePass(){
+  if (state.uiStep < 3) return;
+  if (!state.rawVideoPath) return;
+  const sets = state.sets || [];
+  if (!sets.length) return;
+  const needsAny = sets.some(s => !s.sideUserOverride && !s.sideAutoFromFrame);
+  if (!needsAny) return;
+  if (autoSidePassRunning) return;
+  if (autoSideScheduleTimer) clearTimeout(autoSideScheduleTimer);
+  autoSideScheduleTimer = setTimeout(() => {
+    autoSideScheduleTimer = null;
+    runAutoSidePass().catch(()=>{});
+  }, 1200);
 }
 
 function refreshSummary(){
@@ -2449,7 +2684,7 @@ function refreshSummary(){
   const sectionsTotal = state.sets.length;
   const withImages = state.sets.filter(s=>Array.isArray(s.candidates) && s.candidates.length > 0).length;
   if (state.uiStep >= 4) {
-    selSummaryEl.textContent = `${picked} / ${sectionsTotal} image sections selected`;
+    selSummaryEl.textContent = `${picked} / ${sectionsTotal} final images picked`;
   } else {
     selSummaryEl.textContent = `${sectionsTotal} image sections`;
   }
@@ -2666,7 +2901,7 @@ function addSectionFromManualRange(){
 
   state.sets.push(set);
   state.sets.sort((x,y)=> (x.startTc || '').localeCompare(y.startTc || ''));
-  state.sectionsConfirmed = false;
+  if (state.uiStep === 3) state.sectionsConfirmed = false;
 
   state.selectedLineRange = range;
   renderTranscript();
@@ -2674,6 +2909,9 @@ function addSectionFromManualRange(){
   centerLinkedViews(range, set.id);
   ensureVideoPreviewVisible();
   markDirty();
+  if (state.uiStep === 4) {
+    resultBoxEl.textContent = `Added new section at [${startTc}]. Click "Fill missing images" to generate candidates.`;
+  }
 }
 
 function handleTranscriptClick(idx){
@@ -2767,16 +3005,44 @@ function attachInteractions(){
     const set = state.sets.find(s=>s.id===setId);
     if (!set) return;
 
-    if (act === 'jump-set') {
-      state.selectedLineRange = set.lineRange;
-      if (Array.isArray(set.lineRange) && Number.isFinite(Number(set.lineRange[0]))) {
-        seekVideoToTranscriptLine(Number(set.lineRange[0]));
-      }
+    if (act === 'side-toggle') {
+      const cur = (set.sideSelected || set.sideSuggested) === 'left' ? 'left' : 'right';
+      set.sideSelected = cur === 'left' ? 'right' : 'left';
+      set.sideUserOverride = true;
+      if (state.uiStep === 3) state.sectionsConfirmed = false;
       renderSets();
-      renderTranscript();
-      centerLinkedViews(set.lineRange, set.id);
-      ensureVideoPreviewVisible();
-      setTranscriptToolStatus(`Jumped preview to ${set.title || set.id} [${set.startTc || '--'}].`);
+      markDirty();
+      return;
+    }
+
+    if (act === 'regen-section') {
+      state.openRegenSectionId = state.openRegenSectionId === setId ? null : setId;
+      renderSets();
+      return;
+    }
+
+    if (act === 'regen-cancel') {
+      state.openRegenSectionId = null;
+      renderSets();
+      return;
+    }
+
+    if (act === 'regen-fire') {
+      if (state.activeRecommendationJobId) {
+        resultBoxEl.textContent = 'An image generation job is already running. Wait for it to finish.';
+        return;
+      }
+      const panel = slotListEl.querySelector(`[data-section-regen="${setId}"]`);
+      const promptEl = panel?.querySelector('textarea[data-act="regen-prompt"]');
+      const countEl = panel?.querySelector('input[data-act="regen-count"]');
+      const newPrompt = String(promptEl?.value || '').trim();
+      const newCount = Math.max(1, Math.min(6, Number(countEl?.value || 2)));
+      const mode = String(btn.dataset.mode || 'replace');
+      if (newPrompt) set.prompt = newPrompt;
+      set.defaultCount = newCount;
+      state.openRegenSectionId = null;
+      markDirty();
+      regenerateSection(set, { mode }).catch((err) => { resultBoxEl.textContent = String(err); });
       return;
     }
 
@@ -2791,7 +3057,7 @@ function attachInteractions(){
 
     if (act === 'del-set'){
       state.sets = state.sets.filter(s=>s.id !== setId);
-      state.sectionsConfirmed = false;
+      if (state.uiStep === 3) state.sectionsConfirmed = false;
       renderSets();
       markDirty();
       return;
@@ -2849,15 +3115,6 @@ function attachInteractions(){
       return;
     }
 
-    const sideSel = e.target.closest('select[data-act="side-select"]');
-    if (sideSel) {
-      const set = state.sets.find(s=>s.id===sideSel.dataset.set);
-      if (!set) return;
-      set.sideSelected = sideSel.value === 'left' ? 'left' : 'right';
-      if (state.uiStep === 3) state.sectionsConfirmed = false;
-      markDirty();
-      return;
-    }
   });
 }
 
@@ -3087,6 +3344,7 @@ async function loadProjectById(id){
     projectNameEl.value = p.name || '';
     state.transcript = p.transcriptLines || [];
     state.sets = ensureCandidateIds(p.sets || []);
+    state.sets.sort((x,y)=> (x.startTc || '').localeCompare(y.startTc || ''));
     state.selectedLineRange = state.sets[0]?.lineRange || null;
     state.manualRange = null;
     refreshManualRangeLabel();
@@ -3194,6 +3452,7 @@ async function loadProjectById(id){
   } finally {
     state.suppressAutosave = false;
   }
+  setTimeout(() => { runAutoSidePass().catch(()=>{}); }, 800);
 }
 
 function renderProjectsList(items = []) {
@@ -3418,7 +3677,7 @@ function setStep3PlannerExpanded(expanded){
   if (step3AdvancedPanelEl) step3AdvancedPanelEl.classList.toggle('hide', !state.step3PlannerExpanded);
   if (editorBodyEl) editorBodyEl.classList.toggle('step3PlannerCollapsed', state.uiStep === 3 && !state.step3PlannerExpanded);
   if (step3TogglePlannerBtnEl) {
-    step3TogglePlannerBtnEl.textContent = state.step3PlannerExpanded ? 'Hide planner settings' : 'Show planner settings';
+    step3TogglePlannerBtnEl.textContent = state.step3PlannerExpanded ? 'Hide advanced' : 'Advanced';
     step3TogglePlannerBtnEl.setAttribute('aria-expanded', state.step3PlannerExpanded ? 'true' : 'false');
   }
   try {
@@ -3613,6 +3872,24 @@ function normalizeSectionsOnlySets(items = []) {
   })));
 }
 
+function formatJobProgress(p = {}, opts = {}) {
+  const sets = state.sets || [];
+  const total = sets.length;
+  const stage = String(p.stage || 'running');
+  const percent = Math.max(0, Math.min(100, Number(p.percent || 0)));
+
+  if (!total) return `Progress: ${stage} (${percent}%)`;
+
+  if (opts.sectionsOnly || /loading|preparing|running|building|finalizing|queued|sections/i.test(stage)) {
+    return `Progress: ${stage} (${percent}%)`;
+  }
+
+  const done = sets.filter(s => (s.candidates || []).length > 0).length;
+  const active = sets.find(s => s.loading && !(s.candidates || []).length);
+  const activeLabel = active ? ` · working on [${active.startTc || '--'}] ${active.title || ''}`.trim() : '';
+  return `Generating images: ${done}/${total} sections done (${percent}%)${activeLabel}`;
+}
+
 async function pollRecommendationJob(jobId, opts = {}) {
   if (!jobId) return;
   if (state.resumingRecommendationJobId === jobId) return;
@@ -3672,7 +3949,7 @@ async function pollRecommendationJob(jobId, opts = {}) {
         }
       }
 
-      resultBoxEl.textContent = `Progress: ${String(p.stage || 'running')} (${Number(p.percent || 0)}%)`;
+      resultBoxEl.textContent = formatJobProgress(p, opts);
       if (j.status === 'done') break;
       if (j.status === 'error') {
         state.activeRecommendationJobId = null;
@@ -3836,6 +4113,45 @@ async function generateSuggestions(){
   await pollRecommendationJob(jobId);
 }
 
+async function regenerateSection(set, opts = {}){
+  if (!set || !set.id) return;
+  if (state.activeRecommendationJobId) {
+    resultBoxEl.textContent = 'Image generation is already running.';
+    return;
+  }
+  if (!state.transcript.length) {
+    resultBoxEl.textContent = 'Transcribe first.';
+    return;
+  }
+  const mode = opts.mode === 'append' ? 'append' : 'replace';
+  if (mode === 'replace') {
+    set.candidates = [];
+    set.selectedCandidateId = null;
+  }
+  set.loading = true;
+  renderSets();
+  markDirty();
+  resultBoxEl.textContent = `${mode === 'append' ? 'Adding more for' : 'Regenerating'} "${set.title || set.id}"…`;
+  const start = await getJson('/podpics/api/recommendations/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode: 'images-only',
+      transcriptLines: state.transcript,
+      sections: state.sets,
+      sectionsLimit: 0,
+      forceRegenerate: false,
+      onlySectionId: set.id,
+      appendMode: mode === 'append',
+      projectId: state.selectedProjectId || '',
+      workflow: state.workflow || {},
+    }),
+  });
+  const jobId = start.jobId;
+  if (!jobId) throw new Error('Regeneration job failed to start');
+  await pollRecommendationJob(jobId);
+}
+
 async function clearSavedProjects(){
   const ok = window.confirm('Archive and clear all saved projects for this storage root?');
   if (!ok) return;
@@ -3929,10 +4245,52 @@ async function generateOtioFromSelection(){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    resultBoxEl.textContent = JSON.stringify(out, null, 2);
+    renderOtioResult(out, pickedSet);
   }catch(err){
     resultBoxEl.textContent = `Failed: ${String(err)}`;
   }
+}
+
+function downloadLink(label, absPath){
+  if (!absPath) return '';
+  const filename = String(absPath).split('/').pop() || 'file';
+  const href = `/podpics/api/download?path=${encodeURIComponent(absPath)}`;
+  return `<a href="${esc(href)}" download="${esc(filename)}" class="otioDl" title="${esc(absPath)}">${esc(label)} <span class="mini muted">(${esc(filename)})</span></a>`;
+}
+
+function renderOtioResult(out, pickedSet){
+  if (!out || !out.ok || !out.result) {
+    resultBoxEl.textContent = `Failed: ${JSON.stringify(out)}`;
+    return;
+  }
+  const r = out.result;
+  const outputs = r.outputs || {};
+  const recommended = r.recommendedForResolveTest || outputs.otioClean || outputs.otio;
+  const total = (state.sets || []).filter(s => s.selectedCandidateId).length;
+  const sectionLabel = pickedSet ? `${pickedSet.startTc || ''} ${pickedSet.title || pickedSet.id || ''}`.trim() : 'first selected section';
+
+  const links = [
+    downloadLink('Download OTIO (clean — recommended for Resolve)', outputs.otioClean),
+    downloadLink('Download OTIO (debug variant)', outputs.otio),
+    downloadLink('Download FCPXML', outputs.fcpxml),
+  ].filter(Boolean).join('');
+
+  resultBoxEl.innerHTML = `
+    <div class="otioResult">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">Timeline generated</div>
+      <div class="mini muted" style="margin-bottom:8px">Built a single-section test timeline from <strong>${esc(sectionLabel)}</strong>. (Note: this is a 1-section debug export. ${total > 1 ? `You have ${total} sections selected — multi-section export isn't wired up yet.` : ''})</div>
+      <div class="otioLinks">${links || '<span class="mini muted">No output files were reported.</span>'}</div>
+      <details class="mini muted" style="margin-top:8px">
+        <summary>Files on disk</summary>
+        <div style="margin-top:6px"><code>${esc(r.outputDir || '')}</code></div>
+        <div class="mini muted" style="margin-top:4px">Recommended for Resolve: <code>${esc(recommended || '')}</code></div>
+      </details>
+      <details class="mini muted" style="margin-top:8px">
+        <summary>Raw response</summary>
+        <pre style="margin-top:6px">${esc(JSON.stringify(out, null, 2))}</pre>
+      </details>
+    </div>
+  `;
 }
 
 function bindTopControls(){
@@ -4292,13 +4650,61 @@ function bindTopControls(){
   if (step3ImageEngineEl) {
     step3ImageEngineEl.addEventListener('change', ()=>{
       state.workflow = normalizeWorkflowConfigState(state.workflow || {});
-      state.workflow.images.engine = step3ImageEngineEl.value === 'openclaw' ? 'openclaw' : 'pool';
+      const allowed = new Set(['pool', 'openclaw', 'openai-direct', 'fal-direct', 'custom']);
+      state.workflow.images.engine = allowed.has(step3ImageEngineEl.value) ? step3ImageEngineEl.value : 'pool';
       wfImgEngineEl.value = state.workflow.images.engine;
+      syncDirectConfigUI();
       updateWorkflowUI();
       markDirty();
       scheduleWorkflowPersist();
     });
   }
+
+  const wireDirectInput = (el, fieldKey) => {
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const def = DIRECT_PROVIDER_DEFAULTS[step3ImageEngineEl?.value];
+      if (!def) return;
+      state.workflow = normalizeWorkflowConfigState(state.workflow || {});
+      state.workflow.images.direct[def.key][fieldKey] = String(el.value || '').trim();
+      markDirty();
+      scheduleWorkflowPersist();
+    });
+  };
+  wireDirectInput(directUrlEl, 'url');
+  wireDirectInput(directModelEl, 'model');
+  if (directApiKeyEl) {
+    directApiKeyEl.addEventListener('input', () => {
+      const def = DIRECT_PROVIDER_DEFAULTS[step3ImageEngineEl?.value];
+      if (!def) return;
+      state.workflow = normalizeWorkflowConfigState(state.workflow || {});
+      state.workflow.images.direct[def.key].apiKey = String(directApiKeyEl.value || '');
+      markDirty();
+      scheduleWorkflowPersist();
+    });
+  }
+  if (directSchemaEl) {
+    directSchemaEl.addEventListener('change', () => {
+      if (step3ImageEngineEl?.value !== 'custom') return;
+      state.workflow = normalizeWorkflowConfigState(state.workflow || {});
+      state.workflow.images.direct.custom.schema = directSchemaEl.value === 'fal' ? 'fal' : 'openai';
+      markDirty();
+      scheduleWorkflowPersist();
+    });
+  }
+  if (directConfigResetUrlBtnEl) {
+    directConfigResetUrlBtnEl.addEventListener('click', () => {
+      const def = DIRECT_PROVIDER_DEFAULTS[step3ImageEngineEl?.value];
+      if (!def) return;
+      if (directUrlEl) directUrlEl.value = def.url || '';
+      state.workflow = normalizeWorkflowConfigState(state.workflow || {});
+      state.workflow.images.direct[def.key].url = def.url || '';
+      markDirty();
+      scheduleWorkflowPersist();
+    });
+  }
+
+  syncDirectConfigUI();
 
   if (step3ImageModelEl) {
     step3ImageModelEl.addEventListener('input', ()=>{
@@ -4432,8 +4838,95 @@ function bindTopControls(){
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && imageModalEl?.classList.contains('show')) {
       closeCandidatePreview();
+      return;
     }
+    handleEditorHotkey(e);
   });
+}
+
+function isTypingTarget(el){
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = (el.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select';
+}
+
+function activeSectionIndex(){
+  const sets = state.sets || [];
+  if (!sets.length) return -1;
+  const sel = state.selectedLineRange;
+  if (!Array.isArray(sel)) return -1;
+  return sets.findIndex(s => Array.isArray(s.lineRange)
+    && Number(s.lineRange[0]) === Number(sel[0])
+    && Number(s.lineRange[1]) === Number(sel[1]));
+}
+
+function selectSectionByIndex(idx){
+  const sets = state.sets || [];
+  if (!sets.length) return;
+  const clamped = Math.max(0, Math.min(sets.length - 1, idx));
+  const set = sets[clamped];
+  if (!set) return;
+  state.selectedLineRange = set.lineRange;
+  if (Array.isArray(set.lineRange) && Number.isFinite(Number(set.lineRange[0]))) {
+    try { seekVideoToTranscriptLine(Number(set.lineRange[0])); } catch {}
+  }
+  renderSets();
+  renderTranscript();
+  try { centerLinkedViews(set.lineRange, set.id, 'smooth'); } catch {}
+  try { ensureVideoPreviewVisible(); } catch {}
+  const card = slotListEl?.querySelector(`.slot[data-set-id="${set.id}"]`);
+  if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function handleEditorHotkey(e){
+  if (e.defaultPrevented) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (isTypingTarget(e.target)) return;
+  if (state.uiStep < 3) return;
+  const sets = state.sets || [];
+  if (!sets.length) return;
+
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const cur = activeSectionIndex();
+    const next = e.key === 'ArrowDown'
+      ? (cur < 0 ? 0 : Math.min(sets.length - 1, cur + 1))
+      : (cur < 0 ? 0 : Math.max(0, cur - 1));
+    selectSectionByIndex(next);
+    return;
+  }
+
+  if (e.key === 'Tab') {
+    const needsAttention = (s) => !s.selectedCandidateId;
+    const total = sets.length;
+    const cur = activeSectionIndex();
+    const start = cur < 0 ? 0 : cur;
+    const dir = e.shiftKey ? -1 : 1;
+    let found = -1;
+    for (let step = 1; step <= total; step++) {
+      const idx = ((start + dir * step) % total + total) % total;
+      if (needsAttention(sets[idx])) { found = idx; break; }
+    }
+    if (found >= 0) {
+      e.preventDefault();
+      selectSectionByIndex(found);
+    }
+    return;
+  }
+
+  if (state.uiStep >= 4 && /^[1-9]$/.test(e.key)) {
+    const cur = activeSectionIndex();
+    if (cur < 0) return;
+    const set = sets[cur];
+    const cands = set?.candidates || [];
+    const idx = Number(e.key) - 1;
+    if (idx < 0 || idx >= cands.length) return;
+    e.preventDefault();
+    set.selectedCandidateId = cands[idx].id;
+    renderSets();
+    markDirty();
+  }
 }
 
 attachInteractions();

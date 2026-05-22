@@ -2,6 +2,7 @@
 import http from 'node:http';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,51 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+
+let sharpLib = null;
+try {
+  sharpLib = (await import('sharp')).default;
+} catch {
+  sharpLib = null;
+}
+
+const THUMB_CACHE = new Map();
+const THUMB_CACHE_MAX = 256;
+const THUMB_SIZES = { thumb: 320, small: 640 };
+
+async function getThumbBytes(filePath, sizeKey) {
+  if (!sharpLib) return null;
+  const width = THUMB_SIZES[sizeKey] || THUMB_SIZES.thumb;
+  let st;
+  try {
+    st = await fs.stat(filePath);
+  } catch {
+    return null;
+  }
+  const cacheKey = `${filePath}|${st.mtimeMs}|${st.size}|${width}`;
+  const hit = THUMB_CACHE.get(cacheKey);
+  if (hit) {
+    THUMB_CACHE.delete(cacheKey);
+    THUMB_CACHE.set(cacheKey, hit);
+    return hit;
+  }
+  try {
+    const buf = await sharpLib(filePath, { failOn: 'none' })
+      .rotate()
+      .resize({ width, withoutEnlargement: true })
+      .webp({ quality: 78 })
+      .toBuffer();
+    const entry = { bytes: buf, type: 'image/webp' };
+    THUMB_CACHE.set(cacheKey, entry);
+    if (THUMB_CACHE.size > THUMB_CACHE_MAX) {
+      const oldestKey = THUMB_CACHE.keys().next().value;
+      if (oldestKey) THUMB_CACHE.delete(oldestKey);
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
 
 const HOST = process.env.PODPICS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PODPICS_PORT || 8792);
@@ -95,12 +141,16 @@ const DEFAULT_PROMPTS = {
 };
 
 const DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE = [
-  'Create ONE single podcast video overlay image.',
+  'Create ONE single podcast video overlay image that is visually IDENTICAL IN STYLE to the attached reference images.',
   'STRICT OUTPUT RULES (must all be true):',
   '- Output exactly ONE image, filling the full frame edge-to-edge as one scene.',
   '- Do NOT produce a collage, contact sheet, grid, mosaic, photo wall, multi-panel layout, comic strip, before/after split, side-by-side, or any 2x2 / 3x3 / 4-up arrangement.',
   '- Do NOT include thumbnails, borders dividing the canvas, or labeled sub-panels.',
   '- One subject, one composition, one background.',
+  'STYLE-SERIES CONSISTENCY (HARD REQUIREMENT when reference images are attached):',
+  '- Treat the attached references as a locked visual identity for the "{{STYLE_LABEL}}" series. The output MUST look like the next entry in that exact series — same color palette, same lighting, same grain/glitch/noise treatment, same typography vibe, same composition framing, same subject treatment, same background mood.',
+  '- Do not invent a new style. Do not blend styles. Do not interpret references as "loose inspiration". Match them tightly enough that a viewer scrolling the series cannot tell which image is the new one.',
+  '- The subject content changes per section ({{SECTION_TITLE}} / {{DIRECTION}}). The style does NOT.',
   'Generation route: OpenClaw gateway tool `image_generate`.',
   'Requested provider/model: {{REQUESTED_MODEL}}',
   'Routed provider/model: {{ROUTED_MODEL}}',
@@ -112,32 +162,70 @@ const DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE = [
   'Hard quality constraints: cinematic contrast, sharp details, readable central subject, avoid muddy low-detail outputs.',
   'Transcript context:',
   '{{TRANSCRIPT_SNIPPET}}',
-  'Final reminder: produce ONE single full-frame image, not a collage or grid of variants.',
+  'Final reminder: ONE single full-frame image, exactly matching the attached reference style series.',
 ].join('\n');
 
 const DEFAULT_SECTION_PLANNER_PROMPT_TEMPLATE = [
   'You are planning short-form podcast visual overlays from transcript lines.',
-  'Return ONLY JSON in this exact schema: {"sections":[{"lineStart":12,"lineEnd":16,"title":"...","styleKey":"{{FIRST_STYLE_KEY}}","side":"left|right","prompt":"..."}]}',
+  'Return ONLY JSON in this exact schema: {"sections":[{"lineStart":12,"lineEnd":16,"title":"...","styleKey":"{{FIRST_STYLE_KEY}}","side":"left|right","prompt":"...","referenceLookup":{"kind":"book|movie|show|poster|article","title":"...","author":"...","year":"..."}}]}',
+  'The `referenceLookup` field is ONLY required when styleKey is `reference_book`. Omit it for other styles. For reference_book, ALWAYS fill it in with the canonical work being referenced, so the system can fetch the real cover instead of generating one.',
   'Estimated transcript duration: {{DURATION_MINUTES}} minutes.',
   'Section spacing rules: strict trigger sections may be close together when the transcript contains close-together triggers. Use the minimum gap mainly for subjective meme/commentary sections.',
   'Create every strong trigger section you find, up to the safety cap of {{MAX_COUNT}} sections. The target count {{TARGET_COUNT}} is only a soft guide for meme/commentary density, not for strict triggers.',
   'Allowed styleKey values: {{STYLE_KEYS}}.',
-  'Rules: spread sections across whole transcript, avoid overlap, each range 2-5 lines, prompts should be specific and visually descriptive.',
+  'Rules: spread sections across whole transcript, avoid overlap, each range 2-5 lines.',
   'Calibration principle: the transcript text is the trigger. Do not force global style ratios. If the transcript mentions many philosophers/books/studies, create many corresponding images; if it mentions none, create none.',
   'Practical style cues:',
   '- evidence_support cues: CDC/NIH/FDA, trial, paper, research finding, study result, data claim, statistic, percentage, chartable comparison, concrete health/science claim, stock/market/congress-trading metric, or other source-backed measurable claim.',
   '- Evidence boundary: do NOT use evidence_support for generic questions, abstract claims, persuasion, authority talk, manipulation/certainty commentary, or the word "who" as a pronoun. If it would be a reaction meme instead of a receipt/chart/source card, use meme_commentary.',
-  '- reference_book cues: explicit title/franchise/book/movie/show references (can be unquoted).',
+  '- reference_book cues: explicit title/franchise/book/movie/show references (can be unquoted). The transcript must name the work as a work (a book, novel, film, show, franchise, article, poster) — not just mention something that happens to share its name.',
+  '- reference_book ANTI-RULES: do NOT trigger reference_book on bare year numbers (1984, 2020, 2024), year puns ("COVID-1984", "post-2008", "back to 2008"), generic noun pairings, or any phrase where the cultural artifact is not explicitly invoked as itself. Saying "this is 1984 all over again" is metaphor, not a book reference — use meme_commentary. The trigger is "the book/movie/show is being talked about", not "a year or number is being said".',
   '- philosopher_glitch cues: named thinkers/historical figures/eras.',
   '- meme_commentary cues: debate/opinion/reactive commentary without a concrete source artifact.',
   'Priority policy: strict trigger styles beat density rules. Meme/commentary is the flexible filler for subjective ideas, jokes, strong opinions, emotional reactions, or abstract arguments without a concrete artifact/person/data trigger.',
   'Density policy: only meme_commentary is density-constrained. Add meme/commentary sections where the conversation has strong visual moments, but do not use memes to crowd out strict trigger sections.',
   'Strict style policy:',
   '- Use philosopher_glitch whenever the section explicitly mentions a real philosopher, historical figure, named thinker, or historical era/movement that can be visually personified.',
-  '- Use reference_book whenever the section explicitly mentions a specific book, movie, show, franchise, article, poster, cover, or named cultural artifact that can be represented as a cover/screenshot/poster.',
+  '- Use reference_book ONLY when the transcript explicitly names a book, movie, show, franchise, article, poster, or named cultural artifact AS a work — author name, title quoted, or clear reference to the work itself. Bare year numbers, year puns, dates, and metaphors do NOT count. When in doubt, use meme_commentary.',
   '- Use evidence_support whenever the section explicitly mentions a study, research result, institution/source, statistic, percentage, chartable comparison, concrete medical/scientific claim, concrete finance/politics metric, or source-backed data point.',
   '- If none of those strict conditions are met, default to meme_commentary.',
-  '- In each section.prompt, start with `Type: <style label>.` then the concrete visual direction.',
+  '',
+  '== SECTION PROMPT QUALITY (CRITICAL) ==',
+  'Each section.prompt MUST be a UNIQUE, SPECIFIC image direction for THAT moment in the transcript. Generic style instructions are forbidden. Show the image model EXACTLY what to draw.',
+  '',
+  'Required structure for every section.prompt:',
+  '  Line 1: `Type: <style label>.` Then a one-line subject statement naming the exact entity from the transcript (the philosopher\'s name, the book\'s title + author, the study source + key stat, or the meme target/theme).',
+  '  Line 2-3: Concrete visual direction — composition, framing, lighting, color, key on-screen elements/text/captions.',
+  '  Length: 2-4 sentences. Vivid and specific.',
+  '',
+  'FORBIDDEN (do not output prompts like these):',
+  '  ❌ "Type: Philosopher glitch style. Authority experiment graphic with compliance percentages."  (too generic — doesn\'t name the philosopher)',
+  '  ❌ "Type: Book / movie cover reference. Generate reference-cover visuals only when..."  (this is the STYLE preset, not a section prompt)',
+  '  ❌ "Type: Meme commentary. Create a meme about media manipulation."  (no specifics, no format, no caption)',
+  '',
+  'REQUIRED (this level of specificity per style):',
+  '',
+  '  ✅ philosopher_glitch — transcript mentions Benjamin Franklin:',
+  '     "Type: Philosopher glitch style. Subject: Benjamin Franklin, 18th-century American statesman, mid-shot facing camera in period clothing (waistcoat, cravat), holding a quill. Glitch treatment: red/blue chromatic aberration split, horizontal scan lines, occasional pixel tearing. Dark moody background, single dramatic light source. Recognizably Franklin — the glitch is the style overlay, not the subject."',
+  '',
+  '  ✅ reference_book — transcript explicitly names "1984" by Orwell:',
+  '     section.prompt: "Type: Book / movie cover reference. Reproduce the canonical published cover of \'1984\' by George Orwell (Penguin Modern Classics or Signet edition). Bold title typography centered, the iconic stylized eye motif or red/black totalitarian color scheme. Match the published design exactly — DO NOT invent a new cover, this should look like the real book cover anyone would find on Amazon."',
+  '     section.referenceLookup: { "kind": "book", "title": "1984", "author": "George Orwell", "year": "1949" }',
+  '',
+  '  ✅ evidence_support — transcript cites a CDC vaccine efficacy study:',
+  '     "Type: Evidence / chart support. Receipt-style evidence card. Header: \'CDC, 2024 Vaccine Efficacy Report\'. Bold central statistic: \'87% reduction in severe disease (n=12,400)\'. Footer: small source citation. Clean medical-document style — white background, dark navy accent, monospace numerics."',
+  '',
+  '  ✅ meme_commentary — host accuses Congress of insider trading:',
+  '     "Type: Meme commentary. Drake two-panel format. Top panel: Drake displeased — caption \'Civilian using public info to trade stocks\'. Bottom panel: Drake approving — caption \'Congress member trading on closed-session intel\'. Photoreal Drake faces, bold white Impact-style captions with thick black outline."',
+  '',
+  'Specificity checklist for every section.prompt:',
+  '  - Did you name the actual subject mentioned in the transcript? (the person, the work, the source, the meme target)',
+  '  - Did you describe the composition, lighting, color, and key visual elements?',
+  '  - For evidence_support: did you specify the headline stat or quote that appears on-screen?',
+  '  - For reference_book: did you say "reproduce the canonical published cover of <Title> by <Author>" — not "create a cover-style image"?',
+  '  - For philosopher_glitch: did you name the historical figure AND describe the glitch overlay?',
+  '  - For meme_commentary: did you name the meme format (Drake / Distracted Boyfriend / Two Buttons / Pikachu surprise / etc.) AND write the actual caption text?',
+  '  - If any answer is "no", the prompt is too generic — rewrite.',
   '',
   'Transcript lines (idx\ttc\ttext):',
   '{{TRANSCRIPT_LINES}}',
@@ -195,8 +283,8 @@ function defaultWorkflowConfig() {
       audioChannel: STT_AUDIO_CHANNEL,
     },
     recommendations: {
-      engine: 'heuristic', // heuristic | openclaw
-      model: '', // gateway model id, optional
+      engine: 'openclaw', // heuristic | openclaw
+      model: 'anthropic/claude-opus-4-7', // gateway model id, optional
       sessionMode: 'ephemeral', // ephemeral | main
       sessionKey: 'agent:main:podpics-recommendations',
       thinking: 'off',
@@ -208,14 +296,19 @@ function defaultWorkflowConfig() {
       sectionDurationMaxSeconds: DEFAULT_SECTION_DURATION_MAX_SECONDS,
     },
     images: {
-      engine: 'pool', // pool | openclaw
-      model: 'openai/gpt-image-2', // image_generate provider/model override
+      engine: 'pool', // pool | openclaw | openai-direct | fal-direct | custom
+      model: 'openai/gpt-image-2', // image_generate provider/model override (openclaw path)
       sessionMode: 'main', // ephemeral | main
       sessionKey: IMAGE_MAIN_SESSION_KEY,
       countPerSection: 2,
       size: '1024x1024',
       aspectRatio: '',
       systemPromptTemplate: DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE,
+      direct: {
+        openai: { url: 'https://api.openai.com/v1/images/generations', model: 'gpt-image-1', apiKey: '' },
+        fal: { url: 'https://fal.run/fal-ai/flux/dev', model: '', apiKey: '' },
+        custom: { url: '', model: '', apiKey: '', schema: 'openai' },
+      },
     },
   };
 }
@@ -275,7 +368,8 @@ function normalizeWorkflowConfig(input = {}, fallback = defaultWorkflowConfig())
   const i = cfg.images && typeof cfg.images === 'object' ? cfg.images : {};
   const ib = base.images || {};
   const imgEngine = String(i.engine || ib.engine || 'pool').toLowerCase();
-  out.images.engine = imgEngine === 'openclaw' ? 'openclaw' : 'pool';
+  const allowedEngines = new Set(['pool', 'openclaw', 'openai-direct', 'fal-direct', 'custom']);
+  out.images.engine = allowedEngines.has(imgEngine) ? imgEngine : 'pool';
   out.images.model = String(i.model ?? ib.model ?? '').trim();
   out.images.sessionMode = 'main';
   out.images.sessionKey = IMAGE_MAIN_SESSION_KEY;
@@ -284,6 +378,23 @@ function normalizeWorkflowConfig(input = {}, fallback = defaultWorkflowConfig())
   out.images.aspectRatio = String(i.aspectRatio || ib.aspectRatio || '').trim();
   const tpl = String(i.systemPromptTemplate ?? ib.systemPromptTemplate ?? DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE);
   out.images.systemPromptTemplate = tpl.trim() ? tpl : DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE;
+  const defaultDirect = ib.direct || {};
+  const reqDirect = (i.direct && typeof i.direct === 'object') ? i.direct : {};
+  const normDirectEntry = (key, defaults) => {
+    const inp = (reqDirect[key] && typeof reqDirect[key] === 'object') ? reqDirect[key] : {};
+    const dft = (defaultDirect[key] && typeof defaultDirect[key] === 'object') ? defaultDirect[key] : defaults;
+    return {
+      url: String(inp.url ?? dft.url ?? defaults.url ?? '').trim(),
+      model: String(inp.model ?? dft.model ?? defaults.model ?? '').trim(),
+      apiKey: String(inp.apiKey ?? dft.apiKey ?? defaults.apiKey ?? ''),
+      ...(key === 'custom' ? { schema: (String(inp.schema ?? dft.schema ?? 'openai').toLowerCase() === 'fal' ? 'fal' : 'openai') } : {}),
+    };
+  };
+  out.images.direct = {
+    openai: normDirectEntry('openai', { url: 'https://api.openai.com/v1/images/generations', model: 'gpt-image-1', apiKey: '' }),
+    fal: normDirectEntry('fal', { url: 'https://fal.run/fal-ai/flux/dev', model: '', apiKey: '' }),
+    custom: normDirectEntry('custom', { url: '', model: '', apiKey: '', schema: 'openai' }),
+  };
   return out;
 }
 
@@ -332,6 +443,12 @@ function publicWorkflowConfig(cfg, includeSecrets = false) {
   const safe = normalizeWorkflowConfig(cfg || {});
   if (!includeSecrets) {
     safe.transcript.apiKey = safe.transcript.apiKey ? redactSecret(safe.transcript.apiKey) : '';
+    if (safe.images?.direct) {
+      for (const key of Object.keys(safe.images.direct)) {
+        const dc = safe.images.direct[key];
+        if (dc?.apiKey) dc.apiKey = redactSecret(dc.apiKey);
+      }
+    }
   }
   return safe;
 }
@@ -2127,8 +2244,8 @@ function applyStrictCueCoverage(sections = [], transcriptLines = [], presets = n
           title: styleKey === 'philosopher_glitch'
             ? 'Named thinker / historical trigger'
             : (styleKey === 'reference_book' ? 'Referenced media / book trigger' : 'Evidence / data trigger'),
-          sideSuggested: out.length % 2 === 0 ? 'right' : 'left',
-          sideSelected: out.length % 2 === 0 ? 'right' : 'left',
+          sideSuggested: 'right',
+          sideSelected: 'right',
         }, styleKey, cueIdx, transcriptLines, presets, workflowCfg));
         current += 1;
         continue;
@@ -2239,11 +2356,7 @@ function buildSuggestionSets(lines, pools, presets, opts = {}) {
     }
     usedByCategory[category] = startIx + take;
 
-    const lineText = String(lines[idx]?.text || '').toLowerCase();
-    let side = 'right';
-    if (lineText.includes('nover') || lineText.includes('nolan')) side = 'left';
-    else if (lineText.includes('james')) side = 'right';
-    else side = si % 2 === 0 ? 'right' : 'left';
+    const side = 'right';
 
     sets.push({
       id: `s${String(si + 1).padStart(2, '0')}`,
@@ -2377,7 +2490,7 @@ async function buildRecommendationsHeuristic(paths, transcriptLines = [], workfl
         id: `f-${suggestionSets.length + 1}`,
         styleKey: 'reference_book',
         category: 'reference',
-        sideSuggested: suggestionSets.length % 2 === 0 ? 'right' : 'left',
+        sideSuggested: 'right',
         prompt: stylePrompt('reference_book', presets),
         defaultCount: 2,
         durationSeconds: estimateSectionDurationSeconds(lines.slice(start, end + 1), wf),
@@ -2731,8 +2844,8 @@ function normalizeOpenClawSections(rawSections, transcriptLines, presets, workfl
         title: `Section ${out.length + 1}`,
         styleKey,
         category: styleCategory(styleKey, presets),
-        sideSuggested: out.length % 2 === 0 ? 'right' : 'left',
-        sideSelected: out.length % 2 === 0 ? 'right' : 'left',
+        sideSuggested: 'right',
+        sideSelected: 'right',
         prompt: stylePrompt(styleKey, presets),
         defaultCount: styleDefaultCount(styleKey, presets),
         durationSeconds: estimateSectionDurationSeconds(snippetLines, workflowCfg?.recommendations || {}),
@@ -2804,8 +2917,8 @@ function buildImageGenPrompt(section, workflowCfg = null, referenceExamples = []
   const refs = Array.isArray(referenceExamples) ? referenceExamples : [];
   const refNames = refs.map((r) => String(r?.name || '').trim()).filter(Boolean).slice(0, IMAGE_REFERENCE_MAX);
   const refBlock = refNames.length
-    ? `Reference images attached are STYLE INSPIRATION ONLY (color palette, typography mood, contrast level). Do NOT replicate their layout, do NOT combine panels from them into a grid, and do NOT produce a sheet of variants. Style cues from: ${refNames.join(' | ')}`
-    : 'Reference images: none available for this style category.';
+    ? `Reference images attached (${refNames.length}) define the LOCKED visual identity of this style series. Match their color palette, lighting, grain/glitch/noise, typography vibe, composition framing, and subject treatment EXACTLY — your output must look like the next entry in the same series. Do NOT replicate their layouts as panels or grids, and do NOT produce a sheet of variants. References: ${refNames.join(' | ')}`
+    : 'Reference images: none available for this style category — use clean, cinematic defaults appropriate to the style.';
   const template = String(workflowCfg?.images?.systemPromptTemplate || DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE).trim() || DEFAULT_IMAGE_SYSTEM_PROMPT_TEMPLATE;
   const vars = {
     '{{STYLE_LABEL}}': styleLabel,
@@ -3131,6 +3244,243 @@ function safeGeneratedAssetGroupId(raw = '') {
   return s.replace(/[^a-zA-Z0-9._:-]+/g, '-').slice(0, 80) || 'session';
 }
 
+async function downloadImageToTemp(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Image download failed: ${r.status} ${r.statusText}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  const ct = String(r.headers.get('content-type') || '').toLowerCase();
+  const ext = ct.includes('jpeg') ? '.jpg' : (ct.includes('webp') ? '.webp' : '.png');
+  const tmpDir = path.join(os.tmpdir(), 'podpics-direct');
+  await fs.mkdir(tmpDir, { recursive: true });
+  const tmpPath = path.join(tmpDir, `${Date.now()}-${randomUUID()}${ext}`);
+  await fs.writeFile(tmpPath, buf);
+  return tmpPath;
+}
+
+async function saveB64ImageToTemp(b64, defaultExt = '.png') {
+  const buf = Buffer.from(String(b64 || ''), 'base64');
+  const tmpDir = path.join(os.tmpdir(), 'podpics-direct');
+  await fs.mkdir(tmpDir, { recursive: true });
+  const tmpPath = path.join(tmpDir, `${Date.now()}-${randomUUID()}${defaultExt}`);
+  await fs.writeFile(tmpPath, buf);
+  return tmpPath;
+}
+
+async function generateSectionCandidatesDirect(section, workflowCfg, sectionIndex = 0, opts = {}, providerKind = 'openai-direct') {
+  const imgCfg = workflowCfg.images || {};
+  const direct = imgCfg.direct || {};
+  const count = Math.max(1, Math.min(6, Number(imgCfg.countPerSection || section.defaultCount || 2)));
+  const referenceExamples = Array.isArray(opts?.referenceExamples) ? opts.referenceExamples : [];
+
+  const cfg = providerKind === 'fal-direct' ? (direct.fal || {})
+    : providerKind === 'custom' ? (direct.custom || {})
+    : (direct.openai || {});
+  const url = String(cfg.url || '').trim();
+  const apiKey = String(cfg.apiKey || '').trim();
+  const model = String(cfg.model || '').trim();
+  const schema = providerKind === 'fal-direct' ? 'fal'
+    : providerKind === 'custom' ? (String(cfg.schema || 'openai').toLowerCase() === 'fal' ? 'fal' : 'openai')
+    : 'openai';
+
+  const baseMeta = {
+    route: `direct:${providerKind}`,
+    providerRequested: providerKind,
+    modelRequested: model || '(none set)',
+    providerUsed: providerKind,
+    modelUsed: model || '(none set)',
+    promptUsed: '',
+    sectionPrompt: String(section?.prompt || '').trim(),
+    sectionStyleKey: String(section?.styleKey || '').trim(),
+    sectionTitle: String(section?.title || '').trim(),
+    schemaUsed: schema,
+    urlUsed: url,
+  };
+
+  if (!url) return { ok: false, paths: [], meta: baseMeta, error: `${providerKind}: no URL configured.` };
+  if (!apiKey && providerKind !== 'custom') return { ok: false, paths: [], meta: baseMeta, error: `${providerKind}: API key missing in workflow config.` };
+
+  const prompt = buildImageGenPrompt(section, workflowCfg, referenceExamples, {
+    requested: `${providerKind}/${model || '(model from URL)'}`,
+    routed: `${providerKind}/${model || '(model from URL)'}`,
+  });
+  baseMeta.promptUsed = prompt;
+
+  try {
+    let body;
+    let headers = { 'Content-Type': 'application/json' };
+    if (schema === 'fal') {
+      headers['Authorization'] = `Key ${apiKey}`;
+      body = JSON.stringify({
+        prompt,
+        num_images: count,
+        ...(imgCfg.size ? { image_size: mapSizeForFal(imgCfg.size) } : {}),
+      });
+    } else {
+      // openai schema
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      body = JSON.stringify({
+        ...(model ? { model } : {}),
+        prompt,
+        n: count,
+        ...(imgCfg.size ? { size: String(imgCfg.size) } : {}),
+        response_format: 'b64_json',
+      });
+    }
+
+    const r = await fetch(url, { method: 'POST', headers, body });
+    const text = await r.text();
+    if (!r.ok) {
+      return { ok: false, paths: [], meta: baseMeta, error: `${providerKind} HTTP ${r.status}: ${text.slice(0, 300)}` };
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { parsed = null; }
+    if (!parsed) return { ok: false, paths: [], meta: baseMeta, error: `${providerKind}: response was not JSON.` };
+
+    const paths = [];
+    if (schema === 'fal') {
+      const items = Array.isArray(parsed?.images) ? parsed.images : (Array.isArray(parsed?.data) ? parsed.data : []);
+      for (const item of items) {
+        const u = String(item?.url || item?.image_url || '').trim();
+        if (u) { try { paths.push(await downloadImageToTemp(u)); } catch (e) { baseMeta.warn = String(e?.message || e); } }
+      }
+    } else {
+      const items = Array.isArray(parsed?.data) ? parsed.data : [];
+      for (const item of items) {
+        if (item?.b64_json) { try { paths.push(await saveB64ImageToTemp(item.b64_json)); } catch (e) { baseMeta.warn = String(e?.message || e); } }
+        else if (item?.url) { try { paths.push(await downloadImageToTemp(item.url)); } catch (e) { baseMeta.warn = String(e?.message || e); } }
+      }
+    }
+
+    return { ok: paths.length > 0, paths, meta: baseMeta, error: paths.length ? '' : `${providerKind}: response had no images.` };
+  } catch (err) {
+    return { ok: false, paths: [], meta: baseMeta, error: `${providerKind}: ${String(err?.message || err)}` };
+  }
+}
+
+function mapSizeForFal(size) {
+  const s = String(size || '').toLowerCase();
+  if (/^1024x1024$/.test(s)) return 'square_hd';
+  if (/^1024x1536$|^1024x1792$/.test(s)) return 'portrait_4_3';
+  if (/^1536x1024$|^1792x1024$/.test(s)) return 'landscape_4_3';
+  if (/^512x512$/.test(s)) return 'square';
+  return 'square_hd';
+}
+
+async function fetchBookCoversFromOpenLibrary(lookup, count = 2) {
+  const title = String(lookup?.title || '').trim();
+  const author = String(lookup?.author || '').trim();
+  if (!title) return [];
+  const params = new URLSearchParams();
+  params.set('title', title);
+  if (author) params.set('author', author);
+  params.set('limit', '8');
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?${params.toString()}`, {
+      headers: { 'User-Agent': 'PodPics/1.0 (cover-fetch)', 'Accept': 'application/json' },
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const docs = Array.isArray(data?.docs) ? data.docs : [];
+    const urls = [];
+    for (const d of docs) {
+      if (d?.cover_i) urls.push(`https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`);
+      if (urls.length >= count) break;
+    }
+    return [...new Set(urls)];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCoversViaWebSearch(lookup, count = 2) {
+  const title = String(lookup?.title || '').trim();
+  if (!title) return [];
+  const kind = String(lookup?.kind || '').toLowerCase();
+  const author = String(lookup?.author || '').trim();
+  const year = String(lookup?.year || '').trim();
+  const trailing = kind === 'movie' ? 'official movie poster'
+    : kind === 'show' ? 'tv show poster'
+    : kind === 'poster' ? 'official poster'
+    : kind === 'article' ? 'magazine cover'
+    : 'book cover';
+  const query = [title, author, year, trailing].filter(Boolean).join(' ');
+  try {
+    const out = await gatewayCallJson('web.search', { query, max_results: 10 }, 30000);
+    const results = Array.isArray(out?.results) ? out.results : (Array.isArray(out?.items) ? out.items : []);
+    const urls = [];
+    for (const r of results) {
+      const candidate = String(
+        r?.image
+        || r?.image_url
+        || r?.thumbnail
+        || r?.thumbnail_url
+        || r?.image?.url
+        || ''
+      ).trim();
+      if (candidate && /^https?:\/\//.test(candidate)) urls.push(candidate);
+      if (urls.length >= count) break;
+    }
+    return [...new Set(urls)];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchSectionCandidatesAsReferenceCover(section, workflowCfg, sectionIndex = 0, opts = {}) {
+  const lookup = section?.referenceLookup;
+  if (!lookup || !String(lookup.title || '').trim()) return null;
+  const kind = String(lookup.kind || 'book').toLowerCase();
+  const count = Math.max(1, Math.min(4, Number(workflowCfg?.images?.countPerSection || section.defaultCount || 2)));
+  const baseMeta = {
+    route: kind === 'book' ? 'fetch:openlibrary' : 'fetch:web-search',
+    providerRequested: kind === 'book' ? 'openlibrary' : 'web-search',
+    modelRequested: 'cover-fetch',
+    providerUsed: kind === 'book' ? 'openlibrary' : 'web-search',
+    modelUsed: 'cover-fetch',
+    promptUsed: '',
+    sectionPrompt: String(section?.prompt || '').trim(),
+    sectionStyleKey: String(section?.styleKey || '').trim(),
+    sectionTitle: String(section?.title || '').trim(),
+    referenceLookup: lookup,
+  };
+
+  let urls = [];
+  if (kind === 'book') {
+    urls = await fetchBookCoversFromOpenLibrary(lookup, count);
+  }
+  if (urls.length === 0) {
+    urls = await fetchCoversViaWebSearch(lookup, count);
+    if (urls.length > 0) baseMeta.route = 'fetch:web-search';
+  }
+
+  if (urls.length === 0) {
+    return { ok: false, paths: [], meta: baseMeta, error: `No canonical cover found for "${lookup.title}".` };
+  }
+
+  const paths = [];
+  for (const url of urls.slice(0, count)) {
+    try { paths.push(await downloadImageToTemp(url)); } catch (e) { baseMeta.warn = String(e?.message || e); }
+  }
+
+  if (paths.length === 0) {
+    return { ok: false, paths: [], meta: baseMeta, error: 'Cover URLs found but downloads failed.' };
+  }
+  baseMeta.urlsFetched = urls.slice(0, count);
+  return { ok: true, paths, meta: baseMeta, error: '' };
+}
+
+async function generateSectionCandidatesByEngine(section, workflowCfg, sectionIndex = 0, opts = {}) {
+  if (String(section?.styleKey || '').toLowerCase() === 'reference_book' && section?.referenceLookup && String(section.referenceLookup.title || '').trim()) {
+    const fetched = await fetchSectionCandidatesAsReferenceCover(section, workflowCfg, sectionIndex, opts);
+    if (fetched && fetched.ok) return fetched;
+  }
+  const engine = String(workflowCfg?.images?.engine || 'openclaw').toLowerCase();
+  if (engine === 'openai-direct' || engine === 'fal-direct' || engine === 'custom') {
+    return generateSectionCandidatesDirect(section, workflowCfg, sectionIndex, opts, engine);
+  }
+  return generateSectionCandidatesViaOpenClaw(section, workflowCfg, sectionIndex, opts);
+}
+
 async function persistGeneratedImagePath(srcPath, paths, groupId = 'session', sectionIndex = 0, candidateIndex = 0) {
   const src = normalizeAbs(srcPath || '');
   if (!src) return '';
@@ -3269,7 +3619,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
     completed: 0,
   });
 
-  if (String(wf.images?.engine || 'pool').toLowerCase() !== 'openclaw') {
+  if (String(wf.images?.engine || 'pool').toLowerCase() === 'pool') {
     for (const sec of sections) {
       const pool = pools[sec.category] || [];
       const take = Math.max(1, Number(sec.defaultCount || 2));
@@ -3305,7 +3655,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
         total: sections.length,
         completed: i,
       });
-      const gen = await generateSectionCandidatesViaOpenClaw(sec, wf, i, {
+      const gen = await generateSectionCandidatesByEngine(sec, wf, i, {
         referenceExamples: (pools[sec.category] || []).slice(0, IMAGE_REFERENCE_MAX),
       });
       const persistedPaths = await persistGeneratedImagePaths(
@@ -3407,6 +3757,12 @@ function normalizeSeedSections(rawSections, transcriptLines, presets, workflowCo
         url: String(c?.url || (c?.path ? toApiImageUrl(String(c.path)) : '')),
       })).filter((c) => c.path || c.url),
       selectedCandidateId: String(row.selectedCandidateId || '').trim() || null,
+      referenceLookup: (row.referenceLookup && typeof row.referenceLookup === 'object') ? {
+        kind: String(row.referenceLookup.kind || '').toLowerCase(),
+        title: String(row.referenceLookup.title || '').trim(),
+        author: String(row.referenceLookup.author || '').trim(),
+        year: String(row.referenceLookup.year || '').trim(),
+      } : null,
     }, presets);
 
     out.push(normalized);
@@ -3452,15 +3808,26 @@ async function buildImagesForSections(paths, transcriptLines = [], sectionsSeed 
   }
 
   const forceRegenerate = !!opts?.forceRegenerate;
-  const sections = normalizeSeedSections(sectionsSeed, lines, presets, wf).map((s) => ({
-    ...s,
-    candidates: forceRegenerate ? [] : (s.candidates || []),
-    selectedCandidateId: forceRegenerate ? null : (s.selectedCandidateId || null),
-    loading: forceRegenerate ? true : !((s.candidates || []).length),
-  }));
+  const onlySectionId = String(opts?.onlySectionId || '').trim();
+  const appendMode = !!opts?.appendMode;
+  const sections = normalizeSeedSections(sectionsSeed, lines, presets, wf)
+    .slice()
+    .sort((x, y) => String(x.startTc || '').localeCompare(String(y.startTc || '')))
+    .map((s) => {
+    const isTarget = onlySectionId ? s.id === onlySectionId : true;
+    const wipe = isTarget && (forceRegenerate || (onlySectionId && !appendMode));
+    const existing = Array.isArray(s.candidates) ? s.candidates : [];
+    return {
+      ...s,
+      _existingCandidates: (onlySectionId && appendMode && isTarget) ? existing : null,
+      candidates: wipe ? [] : existing,
+      selectedCandidateId: wipe ? null : (s.selectedCandidateId || null),
+      loading: (isTarget && (wipe || appendMode)) || (!onlySectionId && !((s.candidates || []).length)),
+    };
+  });
   onProgress({ phase: 'sections-ready', base, suggestionSets: sections, total: sections.length, completed: 0 });
 
-  if (String(wf.images?.engine || 'pool').toLowerCase() !== 'openclaw') {
+  if (String(wf.images?.engine || 'pool').toLowerCase() === 'pool') {
     for (let i = 0; i < sections.length; i += 1) {
       const sec = sections[i];
       const pool = pools[sec.category] || [];
@@ -3485,6 +3852,12 @@ async function buildImagesForSections(paths, transcriptLines = [], sectionsSeed 
     let generatedThisRun = 0;
     for (let i = 0; i < sections.length; i += 1) {
       const sec = sections[i];
+      if (onlySectionId && sec.id !== onlySectionId) {
+        sec.loading = false;
+        delete sec._existingCandidates;
+        onProgress({ phase: 'section', sectionIndex: i, section: { ...sec }, total: sections.length, completed: i + 1 });
+        continue;
+      }
       if ((sec.candidates || []).length) {
         sec.loading = false;
         sec.imageGenMeta = sec.imageGenMeta || {
@@ -3498,6 +3871,7 @@ async function buildImagesForSections(paths, transcriptLines = [], sectionsSeed 
           sectionStyleKey: String(sec.styleKey || '').trim(),
           sectionTitle: String(sec.title || '').trim(),
         };
+        delete sec._existingCandidates;
         onProgress({ phase: 'section', sectionIndex: i, section: { ...sec }, total: sections.length, completed: i + 1 });
         continue;
       }
@@ -3520,7 +3894,7 @@ async function buildImagesForSections(paths, transcriptLines = [], sectionsSeed 
       }
       generatedThisRun += 1;
       onProgress({ phase: 'section-start', sectionIndex: i, section: { ...sec }, total: sections.length, completed: i });
-      const gen = await generateSectionCandidatesViaOpenClaw(sec, wf, i, {
+      const gen = await generateSectionCandidatesByEngine(sec, wf, i, {
         referenceExamples: (pools[sec.category] || []).slice(0, IMAGE_REFERENCE_MAX),
       });
       const persistedPaths = await persistGeneratedImagePaths(
@@ -3541,6 +3915,10 @@ async function buildImagesForSections(paths, transcriptLines = [], sectionsSeed 
         const pool = pools[sec.category] || [];
         sec.candidates = pool.slice(0, Math.max(1, Number(sec.defaultCount || 2))).map((c) => ({ ...c }));
       }
+      if (Array.isArray(sec._existingCandidates) && sec._existingCandidates.length) {
+        sec.candidates = [...sec._existingCandidates, ...(sec.candidates || [])];
+      }
+      delete sec._existingCandidates;
       sec.imageGenMeta = gen.meta || {
         route: 'openclaw:image_generate',
         providerRequested: '(unknown)',
@@ -3602,11 +3980,13 @@ async function startRecommendationJob(paths, transcriptLines, workflowConfig = n
   const mode = String(opts?.mode || 'recommendations').toLowerCase() === 'images-only'
     ? 'images-only'
     : 'recommendations';
+  const imgEngineLower = String(wf.images?.engine || 'pool').toLowerCase();
+  const imgEngineProduces = imgEngineLower !== 'pool';
   const generatesImages = mode === 'images-only'
     || (
       mode === 'recommendations'
       && String(wf.recommendations?.engine || 'heuristic').toLowerCase() === 'openclaw'
-      && String(wf.images?.engine || 'pool').toLowerCase() === 'openclaw'
+      && imgEngineProduces
     );
   if (generatesImages) {
     const runningImageJob = findRunningImageGenerationJob();
@@ -3687,6 +4067,8 @@ async function startRecommendationJob(paths, transcriptLines, workflowConfig = n
           assetGroupId,
           sectionsLimit: Math.max(0, Number(opts?.sectionsLimit || 0)),
           forceRegenerate: !!opts?.forceRegenerate,
+          onlySectionId: String(opts?.onlySectionId || '').trim(),
+          appendMode: !!opts?.appendMode,
           onProgress: (evt = {}) => applyProgressEvent(evt, 46, 46, 'preparing sections'),
         });
       } else if (job.engine === 'openclaw') {
@@ -4186,6 +4568,8 @@ const server = http.createServer(async (req, res) => {
           projectId: String(payload?.projectId || '').trim(),
           sectionsLimit: Math.max(0, Number(payload?.sectionsLimit || 0)),
           forceRegenerate: !!payload?.forceRegenerate,
+          onlySectionId: String(payload?.onlySectionId || '').trim(),
+          appendMode: !!payload?.appendMode,
         });
         return sendJson(res, 200, { ok: true, jobId: job.id, job: getRecommendationJobPublic(job, false) });
       } catch (err) {
@@ -4287,6 +4671,7 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === `${BASE}/api/image`) {
       const requested = url.searchParams.get('path') || '';
+      const sizeKey = String(url.searchParams.get('size') || '').toLowerCase();
       if (!requested) {
         return send(res, 400, 'Missing path', { 'Content-Type': 'text/plain; charset=utf-8' });
       }
@@ -4302,8 +4687,55 @@ const server = http.createServer(async (req, res) => {
       }
 
       try {
+        if (sizeKey && THUMB_SIZES[sizeKey]) {
+          const thumb = await getThumbBytes(requested, sizeKey);
+          if (thumb) {
+            return send(res, 200, thumb.bytes, {
+              'Content-Type': thumb.type,
+              'Cache-Control': 'public, max-age=86400, immutable',
+            });
+          }
+        }
         const bytes = await fs.readFile(requested);
-        return send(res, 200, bytes, { 'Content-Type': imageMimeFromName(requested) });
+        return send(res, 200, bytes, {
+          'Content-Type': imageMimeFromName(requested),
+          'Cache-Control': 'public, max-age=86400',
+        });
+      } catch {
+        return send(res, 404, 'Not Found', { 'Content-Type': 'text/plain; charset=utf-8' });
+      }
+    }
+
+    if (pathname === `${BASE}/api/download`) {
+      const requested = url.searchParams.get('path') || '';
+      if (!requested) {
+        return send(res, 400, 'Missing path', { 'Content-Type': 'text/plain; charset=utf-8' });
+      }
+      if (
+        !inAllowedDir(requested, paths.imageLibraryRoot)
+        && !inAllowedDir(requested, paths.ingestRoot)
+        && !inAllowedDir(requested, paths.timelineOut)
+        && !inAllowedDir(requested, paths.projectsRoot)
+        && !inAllowedDir(requested, OPENCLAW_MEDIA_ROOT)
+      ) {
+        return send(res, 403, 'Forbidden', { 'Content-Type': 'text/plain; charset=utf-8' });
+      }
+      try {
+        const st = await fs.stat(requested);
+        if (!st.isFile()) {
+          return send(res, 400, 'Not a file', { 'Content-Type': 'text/plain; charset=utf-8' });
+        }
+        const bytes = await fs.readFile(requested);
+        const ext = path.extname(requested).toLowerCase();
+        const mime = (ext === '.otio' || ext === '.fcpxml' || ext === '.xml')
+          ? 'application/xml'
+          : (ext === '.json' ? 'application/json' : 'application/octet-stream');
+        const filename = path.basename(requested).replace(/"/g, '');
+        return send(res, 200, bytes, {
+          'Content-Type': mime,
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
+        });
       } catch {
         return send(res, 404, 'Not Found', { 'Content-Type': 'text/plain; charset=utf-8' });
       }

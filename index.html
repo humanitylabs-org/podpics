@@ -84,6 +84,11 @@
     .otioDl{display:inline-block;padding:8px 12px;border-radius:9px;border:1px solid #3a5d4a;background:#10241c;color:#9ff0d8;text-decoration:none;font-weight:600;font-size:13px;transition:background .12s ease,border-color .12s ease,transform .12s ease}
     .otioDl:hover{background:#143a2c;border-color:#4fb88a;transform:translateY(-1px)}
     .otioDl .muted{margin-left:6px}
+    .otioPaths{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+    .otioPathRow{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #2a2a33;border-radius:8px;background:#0f0f14}
+    .otioPathLabel{font-size:11px;color:#a0a0b2;text-transform:uppercase;letter-spacing:.04em}
+    .otioPathVal{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#e8ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent;padding:0}
+    .otioCopyBtn{padding:4px 8px !important;font-size:11px !important;color:#9ff0d8 !important}
     details.adv{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
     details.adv summary{cursor:pointer;color:var(--muted);font-size:12px}
     .emptyState{height:72vh;display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#101015}
@@ -4299,23 +4304,42 @@ function renderOtioResult(out, pickedSet, extras = {}){
     ? `<div class="mini" style="margin-top:6px;color:#ffcf8a">Skipped ${skipped.length} section${skipped.length === 1 ? '' : 's'} with missing file path${skipped.length === 1 ? '' : 's'}.</div>`
     : '';
 
+  const otioPath = recommended || '';
+  const dirPath = r.outputDir || '';
+  const pathRow = (label, val) => val
+    ? `<div class="otioPathRow"><div class="otioPathLabel">${esc(label)}</div><code class="otioPathVal" title="${esc(val)}">${esc(val)}</code><button class="linkBtn otioCopyBtn" type="button" data-copy="${esc(val)}">Copy</button></div>`
+    : '';
+
   resultBoxEl.innerHTML = `
     <div class="otioResult">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px">${esc(header)}</div>
       <div class="mini muted" style="margin-bottom:8px">${subline}</div>
       <div class="otioLinks">${linksHtml || '<span class="mini muted">No output files were reported.</span>'}</div>
+      <div class="otioPaths">
+        ${pathRow('OTIO file', otioPath)}
+        ${pathRow('Folder', dirPath)}
+      </div>
       ${skippedNote}
-      <details class="mini muted" style="margin-top:8px">
-        <summary>Files on disk</summary>
-        <div style="margin-top:6px"><code>${esc(r.outputDir || '')}</code></div>
-        <div class="mini muted" style="margin-top:4px">Recommended for Resolve: <code>${esc(recommended || '')}</code></div>
-      </details>
       <details class="mini muted" style="margin-top:8px">
         <summary>Raw response</summary>
         <pre style="margin-top:6px">${esc(JSON.stringify(out, null, 2))}</pre>
       </details>
     </div>
   `;
+
+  resultBoxEl.querySelectorAll('.otioCopyBtn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const v = btn.getAttribute('data-copy') || '';
+      try {
+        await navigator.clipboard.writeText(v);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+      } catch {
+        btn.textContent = 'Copy failed';
+      }
+    });
+  });
 }
 
 function bindTopControls(){

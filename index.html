@@ -80,10 +80,6 @@
     .footer{position:sticky;bottom:0;background:rgba(11,11,13,.95);border-top:1px solid var(--line);padding:8px;margin-top:8px}
     pre{background:#0f0f12;border:1px solid #2a2a33;border-radius:10px;padding:10px;overflow:auto;max-height:180px}
     .otioResult{padding:4px 2px}
-    .otioLinks{display:flex;flex-direction:column;gap:6px}
-    .otioDl{display:inline-block;padding:8px 12px;border-radius:9px;border:1px solid #3a5d4a;background:#10241c;color:#9ff0d8;text-decoration:none;font-weight:600;font-size:13px;transition:background .12s ease,border-color .12s ease,transform .12s ease}
-    .otioDl:hover{background:#143a2c;border-color:#4fb88a;transform:translateY(-1px)}
-    .otioDl .muted{margin-left:6px}
     .otioPaths{margin-top:10px;display:flex;flex-direction:column;gap:6px}
     .otioPathRow{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #2a2a33;border-radius:8px;background:#0f0f14}
     .otioPathLabel{font-size:11px;color:#a0a0b2;text-transform:uppercase;letter-spacing:.04em}
@@ -98,9 +94,6 @@
     @keyframes doneCheckPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
     .doneTitle{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:22px;font-weight:700;margin:0 0 4px;color:var(--text);letter-spacing:-.01em}
     .doneSub{color:var(--muted);font-size:13px;line-height:1.4;margin:0 0 18px}
-    .doneCard .otioLinks{justify-content:center;align-items:center;gap:6px}
-    .doneCard .otioDl{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;font-size:13px;background:#f2f2f2;color:#0b0b0d;border-color:transparent;font-weight:700}
-    .doneCard .otioDl:hover{background:#fff;color:#0b0b0d;border-color:transparent}
     .doneCard .otioPaths{margin-top:14px;text-align:left}
     .doneCard .otioPathRow{background:#0f0f14;border-color:#262630}
     .doneFooter{margin-top:18px;display:flex;justify-content:center;gap:10px}
@@ -857,7 +850,6 @@
       <div class="doneCheck">✓</div>
       <h2 class="doneTitle" id="doneTitle">Timeline ready</h2>
       <p class="doneSub" id="doneSub"></p>
-      <div class="otioLinks" id="doneLinks"></div>
       <div class="otioPaths" id="donePaths"></div>
       <div class="doneFooter">
         <button class="secondary" id="doneBackBtn">‹ Back to images</button>
@@ -1691,7 +1683,6 @@ function showEditor(){
 const doneScreenEl = document.getElementById('doneScreen');
 const doneTitleEl = document.getElementById('doneTitle');
 const doneSubEl = document.getElementById('doneSub');
-const doneLinksEl = document.getElementById('doneLinks');
 const donePathsEl = document.getElementById('donePaths');
 const doneBackBtnEl = document.getElementById('doneBackBtn');
 const confettiCanvasEl = document.getElementById('confettiCanvas');
@@ -1706,15 +1697,6 @@ function showDoneScreen(out, extras = {}) {
 
   doneTitleEl.textContent = 'Timeline ready';
   doneSubEl.textContent = `${overlayCount} overlay${overlayCount === 1 ? '' : 's'} · ${projectName}`;
-
-  const links = r.mode === 'multi-section'
-    ? [downloadLink('Download OTIO timeline', outputs.otio || recommended)]
-    : [
-        downloadLink('Download OTIO (clean — recommended)', outputs.otioClean),
-        downloadLink('Download OTIO (debug)', outputs.otio),
-        downloadLink('Download FCPXML', outputs.fcpxml),
-      ];
-  doneLinksEl.innerHTML = links.filter(Boolean).join('');
 
   const pathRow = (label, val) => val
     ? `<div class="otioPathRow"><div class="otioPathLabel">${esc(label)}</div><code class="otioPathVal" title="${esc(val)}">${esc(val)}</code><button class="linkBtn otioCopyBtn" type="button" data-copy="${esc(val)}">Copy</button></div>`
@@ -4470,13 +4452,6 @@ async function generateOtioFromSelection(){
   }
 }
 
-function downloadLink(label, absPath){
-  if (!absPath) return '';
-  const filename = String(absPath).split('/').pop() || 'file';
-  const href = `/podpics/api/download?path=${encodeURIComponent(absPath)}`;
-  return `<a href="${esc(href)}" download="${esc(filename)}" class="otioDl" title="${esc(absPath)}">${esc(label)} <span class="mini muted">(${esc(filename)})</span></a>`;
-}
-
 function renderOtioResult(out, pickedSet, extras = {}){
   if (!out || !out.ok || !out.result) {
     resultBoxEl.textContent = `Failed: ${JSON.stringify(out)}`;
@@ -4489,20 +4464,11 @@ function renderOtioResult(out, pickedSet, extras = {}){
   const overlayCount = Number(r.overlayCount || extras.overlayCount || 1);
   const skipped = Array.isArray(extras.skipped) ? extras.skipped : [];
 
-  const links = isMulti
-    ? [downloadLink('Download OTIO timeline (for DaVinci Resolve)', outputs.otio || recommended)]
-    : [
-        downloadLink('Download OTIO (clean — recommended for Resolve)', outputs.otioClean),
-        downloadLink('Download OTIO (debug variant)', outputs.otio),
-        downloadLink('Download FCPXML', outputs.fcpxml),
-      ];
-  const linksHtml = links.filter(Boolean).join('');
-
   const header = isMulti
     ? `Timeline generated with ${overlayCount} overlay${overlayCount === 1 ? '' : 's'}`
     : 'Timeline generated (single-section test)';
   const subline = isMulti
-    ? `Import the OTIO into DaVinci Resolve. The raw video stays on disk — Resolve will relink to it from the .otio.`
+    ? `Files saved on this machine. Use the paths below to grab them via scp / Dropbox / rsync.`
     : `Built a one-section debug timeline from <strong>${esc(pickedSet ? (pickedSet.startTc + ' ' + (pickedSet.title || pickedSet.id || '')).trim() : 'the first selected section')}</strong>.`;
 
   const skippedNote = skipped.length
@@ -4520,7 +4486,6 @@ function renderOtioResult(out, pickedSet, extras = {}){
     <div class="otioResult">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px">${esc(header)}</div>
       <div class="mini muted" style="margin-bottom:8px">${subline}</div>
-      <div class="otioLinks">${linksHtml || '<span class="mini muted">No output files were reported.</span>'}</div>
       <div class="otioPaths">
         ${pathRow('OTIO file', otioPath)}
         ${pathRow('Folder', dirPath)}

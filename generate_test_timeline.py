@@ -240,7 +240,9 @@ def patch_otio_clean(template_path: Path, out_path: Path, raw_video: Path, overl
     transform_template = find_transform_effect_template(obj)
 
     image_clip = copy.deepcopy(image_clip_template)
-    patch_clip_media_name_and_url(image_clip, overlay_image.name, str(overlay_image.resolve()))
+    # Overlay PNG lives in the same folder as the .otio (bundled by the caller),
+    # so target_url is the basename — keeps the folder portable.
+    patch_clip_media_name_and_url(image_clip, overlay_image.name, overlay_image.name)
 
     if not isinstance(image_clip.get('effects'), list):
         image_clip['effects'] = []
@@ -338,7 +340,9 @@ def build_overlay_clip(template_path_obj: dict, overlay_image: Path,
     transform_template = find_transform_effect_template(template_path_obj)
 
     image_clip = copy.deepcopy(image_clip_template)
-    patch_clip_media_name_and_url(image_clip, overlay_image.name, str(overlay_image.resolve()))
+    # Overlay PNG lives in the same folder as the .otio (bundled by the caller),
+    # so target_url is the basename — keeps the folder portable.
+    patch_clip_media_name_and_url(image_clip, overlay_image.name, overlay_image.name)
 
     if not isinstance(image_clip.get('effects'), list):
         image_clip['effects'] = []
@@ -414,7 +418,10 @@ def patch_otio_clean_multi(template_path: Path, out_path: Path, raw_video: Path,
     overlay_track = copy.deepcopy(tracks[1])
     audio_track = copy.deepcopy(next((t for t in tracks if t.get('kind') == 'Audio'), tracks[-1]))
 
-    raw_url = str(raw_video.resolve())
+    # Self-contained folder: .otio + raw video + overlay PNGs all live next to
+    # each other, so target_url is the basename. Keeps the folder portable
+    # across Linux/Mac (Resolve resolves relative paths from the .otio's dir).
+    raw_url = raw_video.name
     for clip in main_video_track.get('children', []):
         if str(clip.get('OTIO_SCHEMA', '')).startswith('Clip'):
             patch_clip_media_name_and_url(clip, raw_video.name, raw_url)
@@ -595,25 +602,36 @@ def main():
                 'tilt': float(ov.get('tilt', 0.0)),
             })
 
+        # Copy/hardlink the raw video into the export dir so the folder is
+        # self-contained — Resolve can relink everything from one place.
+        raw_video_copy = out_dir / raw_video.name
+        if not raw_video_copy.exists():
+            try:
+                os.link(str(raw_video), str(raw_video_copy))  # hardlink on same FS
+            except OSError:
+                shutil.copy2(str(raw_video), str(raw_video_copy))
+
         out_otio_full = out_dir / 'podpics-timeline.otio'
-        full_meta = patch_otio_clean_multi(template_otio, out_otio_full, raw_video, copied_overlays)
+        full_meta = patch_otio_clean_multi(template_otio, out_otio_full, raw_video_copy, copied_overlays)
 
         manifest = {
             'createdAtUtc': dt.datetime.utcnow().isoformat(timespec='seconds') + 'Z',
             'mode': 'multi-section',
             'storageRoot': str(paths['base']),
-            'rawVideo': str(raw_video),
+            'rawVideo': str(raw_video_copy),
+            'rawVideoSource': str(raw_video),
             'overlayCount': full_meta['overlayCount'],
             'templateOtio': str(template_otio),
             'outputDir': str(out_dir),
             'outputs': {
                 'otio': str(out_otio_full),
+                'rawVideo': str(raw_video_copy),
             },
             'recommendedForResolveTest': str(out_otio_full),
             'overlaysPlaced': full_meta['overlays'],
             'notes': [
-                'Import podpics-timeline.otio in DaVinci Resolve.',
-                'If media is offline, relink to local copies of video/image assets under your selected storage root.',
+                'Self-contained DaVinci Resolve project folder.',
+                'Raw video, overlay PNGs, and OTIO are all bundled here with relative paths — move the whole folder anywhere and import podpics-timeline.otio in Resolve.',
             ],
         }
         (out_dir / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')

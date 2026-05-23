@@ -85,6 +85,9 @@
     .otioPathLabel{font-size:11px;color:#a0a0b2;text-transform:uppercase;letter-spacing:.04em;padding-top:2px}
     .otioPathVal{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#e8ecff;background:transparent;padding:0;white-space:normal;word-break:break-all;line-height:1.5;display:block}
     .otioCopyBtn{padding:4px 8px !important;font-size:11px !important;color:#9ff0d8 !important;align-self:start}
+    .resolveSteps{margin:14px 0 0;padding-left:20px;color:#cfd2da;font-size:13px;line-height:1.55;display:flex;flex-direction:column;gap:4px;text-align:left}
+    .resolveSteps code{background:#1a1a22;color:#e8ecff;padding:1px 6px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+    .doneCard .resolveSteps{padding-left:24px}
     .stepCardHead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
     .stepCardHead > div:first-child{flex:1;min-width:0}
     .stepCardActions{flex:0 0 auto;display:flex;gap:8px;align-items:center}
@@ -628,10 +631,10 @@
           <div class="stepCardHead">
             <div>
               <p class="stepTitle">Generate and select images</p>
-              <div class="mini muted" id="step4SectionsSummary">Use the toolbar to generate. Click a candidate to lock it in. Use ↻ on a card to tweak prompt and regenerate or add more. Export OTIO when you're happy.</div>
+              <div class="mini muted" id="step4SectionsSummary">Use the toolbar to generate. Click a candidate to lock it in. Use ↻ on a card to tweak prompt and regenerate or add more. Generate the Resolve project folder when you're happy.</div>
             </div>
             <div class="stepCardActions" id="otioActionTop">
-              <button id="generateOtio" class="primaryAction">Generate OTIO file ›</button>
+              <button id="generateOtio" class="primaryAction">Generate DaVinci Resolve project folder ›</button>
             </div>
           </div>
         </div>
@@ -1702,18 +1705,24 @@ const confettiCanvasEl = document.getElementById('confettiCanvas');
 function showDoneScreen(out, extras = {}) {
   if (!out || !out.result || !doneScreenEl) return;
   const r = out.result;
-  const outputs = r.outputs || {};
-  const recommended = r.recommendedForResolveTest || outputs.otio || outputs.otioClean;
   const overlayCount = Number(r.overlayCount || extras.overlayCount || 1);
   const projectName = String(projectNameEl?.value || '').trim() || 'this project';
 
-  doneTitleEl.textContent = 'Timeline ready';
+  doneTitleEl.textContent = 'Resolve project folder ready';
   doneSubEl.textContent = `${overlayCount} overlay${overlayCount === 1 ? '' : 's'} · ${projectName}`;
 
+  const folder = r.outputDir || '';
   const pathRow = (label, val) => val
     ? `<div class="otioPathRow"><div class="otioPathLabel">${esc(label)}</div><code class="otioPathVal" title="${esc(val)}">${esc(val)}</code><button class="linkBtn otioCopyBtn" type="button" data-copy="${esc(val)}">Copy</button></div>`
     : '';
-  donePathsEl.innerHTML = `${pathRow('OTIO file', recommended || '')}${pathRow('Folder', r.outputDir || '')}`;
+  donePathsEl.innerHTML = `
+    ${pathRow('Folder', folder)}
+    <ol class="resolveSteps">
+      <li>Ensure you can access the folder at the path above.</li>
+      <li>Open DaVinci Resolve and create a new project.</li>
+      <li>File &rsaquo; Import &rsaquo; Timeline&hellip; and pick <code>podpics-timeline.otio</code> inside that folder.</li>
+    </ol>
+  `;
 
   donePathsEl.querySelectorAll('.otioCopyBtn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -4475,7 +4484,7 @@ async function generateOtioFromSelection(){
     overlays,
   };
 
-  resultBoxEl.textContent = `Generating OTIO with ${overlays.length} overlay${overlays.length === 1 ? '' : 's'}…`;
+  resultBoxEl.textContent = `Building Resolve project folder with ${overlays.length} overlay${overlays.length === 1 ? '' : 's'}…`;
   try{
     const out = await getJson('/podpics/api/generate-test', {
       method: 'POST',
@@ -4507,24 +4516,21 @@ function renderOtioResult(out, pickedSet, extras = {}){
     return;
   }
   const r = out.result;
-  const outputs = r.outputs || {};
   const isMulti = r.mode === 'multi-section';
-  const recommended = r.recommendedForResolveTest || outputs.otio || outputs.otioClean;
   const overlayCount = Number(r.overlayCount || extras.overlayCount || 1);
   const skipped = Array.isArray(extras.skipped) ? extras.skipped : [];
 
   const header = isMulti
-    ? `Timeline generated with ${overlayCount} overlay${overlayCount === 1 ? '' : 's'}`
-    : 'Timeline generated (single-section test)';
+    ? `Resolve project folder ready (${overlayCount} overlay${overlayCount === 1 ? '' : 's'})`
+    : 'Single-section debug timeline ready';
   const subline = isMulti
-    ? `Files saved on this machine. Use the paths below to grab them via scp / Dropbox / rsync.`
+    ? 'Folder contains the OTIO, raw video, and all overlay PNGs with relative paths — move it anywhere and open the .otio in Resolve.'
     : `Built a one-section debug timeline from <strong>${esc(pickedSet ? (pickedSet.startTc + ' ' + (pickedSet.title || pickedSet.id || '')).trim() : 'the first selected section')}</strong>.`;
 
   const skippedNote = skipped.length
     ? `<div class="mini" style="margin-top:6px;color:#ffcf8a">Skipped ${skipped.length} section${skipped.length === 1 ? '' : 's'} with missing file path${skipped.length === 1 ? '' : 's'}.</div>`
     : '';
 
-  const otioPath = recommended || '';
   const dirPath = r.outputDir || '';
   const pathRow = (label, val) => val
     ? `<div class="otioPathRow"><div class="otioPathLabel">${esc(label)}</div><code class="otioPathVal" title="${esc(val)}">${esc(val)}</code><button class="linkBtn otioCopyBtn" type="button" data-copy="${esc(val)}">Copy</button></div>`
@@ -4536,9 +4542,13 @@ function renderOtioResult(out, pickedSet, extras = {}){
       <div style="font-weight:700;font-size:14px;margin-bottom:4px">${esc(header)}</div>
       <div class="mini muted" style="margin-bottom:8px">${subline}</div>
       <div class="otioPaths">
-        ${pathRow('OTIO file', otioPath)}
         ${pathRow('Folder', dirPath)}
       </div>
+      <ol class="resolveSteps">
+        <li>Ensure you can access the folder at the path above.</li>
+        <li>Open DaVinci Resolve and create a new project.</li>
+        <li>File &rsaquo; Import &rsaquo; Timeline&hellip; and pick <code>podpics-timeline.otio</code> inside that folder.</li>
+      </ol>
       ${skippedNote}
       <details class="mini muted" style="margin-top:8px">
         <summary>Raw response</summary>

@@ -1,0 +1,19 @@
+[Unit]
+Description=PodPics Tailnet App
+After=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and WorkingDirectory to match where you cloned the repo.
+User=root
+WorkingDirectory=/root/.openclaw/workspace/AGENT-OSCAR/Code/podpics
+Environment=PODPICS_HOST=127.0.0.1
+Environment=PODPICS_PORT=8792
+# Optional: legacy Dropbox root for projects imported from older layouts.
+# Environment=PODPICS_LEGACY_DROPBOX_ROOT=/root/Askmiguel Dropbox/2ndRenPod
+ExecStart=/usr/bin/node /root/.openclaw/workspace/AGENT-OSCAR/Code/podpics/server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

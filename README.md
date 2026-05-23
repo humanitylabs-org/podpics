@@ -104,12 +104,46 @@ Recommended file for Resolve:
 
 ## Setup
 
-1. Copy the example config:
+### System requirements
+
+PodPics shells out to a few binaries that are not installed by `npm install`:
+
+- **Node.js ≥18** — for the server and `sharp` native build.
+- **python3** — invoked by `server.mjs` to run `generate_test_timeline.py` (OTIO export).
+- **ffmpeg + ffprobe** — used for video duration probing and transcript STT preprocessing.
+
+Install them via your package manager before running `npm install`:
+
+```bash
+# Debian / Ubuntu
+sudo apt update && sudo apt install -y python3 ffmpeg
+
+# macOS (Homebrew)
+brew install python3 ffmpeg
+```
+
+### App setup
+
+1. Install JS dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy the example config:
    ```bash
    cp podpics-server-config.example.json podpics-server-config.json
    ```
-2. Edit `podpics-server-config.json` and set `storageRoot` (where projects + outputs go) and `customRoots` (extra dirs the app may read videos from, e.g. a Dropbox or Syncthing folder).
-3. Start the server.
+3. Edit `podpics-server-config.json` and set `storageRoot` (where projects + outputs go) and `customRoots` (extra dirs the app may read videos from, e.g. a Dropbox or Syncthing folder).
+4. Start the server.
+
+### Persistent auto-start (Linux)
+
+A reference systemd unit is provided at [`deploy/podpics.service`](deploy/podpics.service). Adjust `User` and `WorkingDirectory` to match your install, then install it the usual way:
+
+```bash
+sudo cp deploy/podpics.service /etc/systemd/system/podpics.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now podpics
+```
 
 ## Run locally
 ```bash

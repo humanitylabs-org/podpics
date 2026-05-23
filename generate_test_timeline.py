@@ -7,14 +7,6 @@ import os
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from urllib.parse import quote
-
-
-def to_relative_file_url(basename: str) -> str:
-    # Proper relative file URL — Resolve resolves it against the .otio folder
-    # on first pass, so no "clip not found" dialog. Percent-encodes spaces and
-    # other special chars per RFC 3986.
-    return 'file:./' + quote(basename, safe='')
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
 AGENT_WORKSPACE = SCRIPT_ROOT.parent.parent
@@ -249,9 +241,8 @@ def patch_otio_clean(template_path: Path, out_path: Path, raw_video: Path, overl
 
     image_clip = copy.deepcopy(image_clip_template)
     # Overlay PNG lives in the same folder as the .otio (bundled by the caller),
-    # so target_url is a relative file: URL — keeps the folder portable and
-    # avoids Resolve's "clip not found" first-pass dialog.
-    patch_clip_media_name_and_url(image_clip, overlay_image.name, to_relative_file_url(overlay_image.name))
+    # so target_url is the basename — keeps the folder portable.
+    patch_clip_media_name_and_url(image_clip, overlay_image.name, overlay_image.name)
 
     if not isinstance(image_clip.get('effects'), list):
         image_clip['effects'] = []
@@ -350,9 +341,8 @@ def build_overlay_clip(template_path_obj: dict, overlay_image: Path,
 
     image_clip = copy.deepcopy(image_clip_template)
     # Overlay PNG lives in the same folder as the .otio (bundled by the caller),
-    # so target_url is a relative file: URL — keeps the folder portable and
-    # avoids Resolve's "clip not found" first-pass dialog.
-    patch_clip_media_name_and_url(image_clip, overlay_image.name, to_relative_file_url(overlay_image.name))
+    # so target_url is the basename — keeps the folder portable.
+    patch_clip_media_name_and_url(image_clip, overlay_image.name, overlay_image.name)
 
     if not isinstance(image_clip.get('effects'), list):
         image_clip['effects'] = []
@@ -429,10 +419,9 @@ def patch_otio_clean_multi(template_path: Path, out_path: Path, raw_video: Path,
     audio_track = copy.deepcopy(next((t for t in tracks if t.get('kind') == 'Audio'), tracks[-1]))
 
     # Self-contained folder: .otio + raw video + overlay PNGs all live next to
-    # each other, so target_url is a relative file: URL. Keeps the folder
-    # portable across Linux/Mac and lets Resolve resolve on the first pass
-    # (no "clip not found" dialog).
-    raw_url = to_relative_file_url(raw_video.name)
+    # each other, so target_url is the basename. Keeps the folder portable
+    # across Linux/Mac (Resolve resolves relative paths from the .otio's dir).
+    raw_url = raw_video.name
     for clip in main_video_track.get('children', []):
         if str(clip.get('OTIO_SCHEMA', '')).startswith('Clip'):
             patch_clip_media_name_and_url(clip, raw_video.name, raw_url)

@@ -4461,12 +4461,16 @@ async function generateOtioFromSelection(){
         : estimateSectionDurationFromText(s.transcriptSnippet || '', state.workflow),
       state.workflow,
     );
-    const pan = (s.sideSelected || s.sideSuggested || 'right') === 'left' ? -0.72 : 0.72;
+    // Side overlay placement. Tuned so the image fills a meaningful portion of
+    // its half of the screen while the outer edge stays in-frame:
+    //   zoom is roughly 2× the previous default; pan is pulled toward center
+    //   to compensate for the larger footprint.
+    const pan = (s.sideSelected || s.sideSuggested || 'right') === 'left' ? -0.55 : 0.55;
     overlays.push({
       image: c.path,
       offsetSeconds: parseTcToSeconds(s.startTc),
       durationSeconds,
-      zoom: 0.28,
+      zoom: 0.55,
       pan,
       tilt: 0,
     });

@@ -5,9 +5,11 @@ Tailnet app at `/podpics` for podcast image-overlay workflow.
 ## Current capabilities
 
 ### 1) Workspace-first storage (Dropbox removed from default flow)
-PodPics now defaults to a workspace-local root automatically derived from the agent folder:
+PodPics stores data under `$HOME/.local/share/podpics` by default. Set `PODPICS_STORAGE_ROOT` when you want a specific location, such as a shared agent workspace or external media folder.
 
-- `<agent-workspace>/podpics-workspace/`
+Example:
+
+- `$HOME/.local/share/podpics` (default)
 
 Main folders:
 
@@ -17,7 +19,7 @@ Main folders:
 - `outputs/timelines-tests/` — generated OTIO/FCPXML runs
 - `Timelines/` — template OTIO/FCPXML files used by generator
 
-This path is per-instance, so James (or any teammate) gets the same behavior on their own agent workspace.
+This path is per-instance, so James (or any teammate) gets the same behavior on their own VPS, whether they use Hermes, OpenClaw, or another agent.
 
 ### 2) Persistent project system (filesystem)
 Projects are saved under:

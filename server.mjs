@@ -66,8 +66,13 @@ const SERVER_CONFIG_PATH = path.join(ROOT, 'podpics-server-config.json');
 const LOCAL_WORKFLOW_FILENAME = 'podpics-user-workflow.json';
 const TRANSCRIPT_HISTORY_FILENAME = 'podpics-transcript-findreplace-history.json';
 
-const AGENT_WORKSPACE_ROOT = path.resolve(ROOT, '..', '..');
-const TEAM_DEFAULT_ROOT = path.join(AGENT_WORKSPACE_ROOT, 'podpics-workspace');
+const WORKSPACE_ROOT = process.env.PODPICS_WORKSPACE_ROOT
+  || process.env.AGENT_WORKSPACE
+  || process.env.HERMES_WORKSPACE
+  || process.env.OPENCLAW_WORKSPACE
+  || path.resolve(ROOT, '..');
+const LEGACY_WORKSPACE_ROOT = path.resolve(ROOT, '..', '..');
+const TEAM_DEFAULT_ROOT = path.join(LEGACY_WORKSPACE_ROOT, 'podpics-workspace');
 const DEVICE_DEFAULT_ROOT = path.join(process.env.HOME || '/root', '.local', 'share', 'podpics');
 const LEGACY_DROPBOX_ROOT = process.env.PODPICS_LEGACY_DROPBOX_ROOT || '';
 const LEGACY_LOCAL_ROOT = path.join(ROOT, 'data-local');
@@ -283,8 +288,8 @@ function defaultWorkflowConfig() {
       audioChannel: STT_AUDIO_CHANNEL,
     },
     recommendations: {
-      engine: 'openclaw', // heuristic | openclaw
-      model: 'anthropic/claude-opus-4-7', // gateway model id, optional
+      engine: 'agent', // heuristic | agent | hermes | openclaw | agent-command
+      model: '', // optional model id for the selected agent runtime
       sessionMode: 'ephemeral', // ephemeral | main
       sessionKey: 'agent:main:podpics-recommendations',
       thinking: 'off',
@@ -337,8 +342,9 @@ function normalizeWorkflowConfig(input = {}, fallback = defaultWorkflowConfig())
 
   const r = cfg.recommendations && typeof cfg.recommendations === 'object' ? cfg.recommendations : {};
   const rb = base.recommendations || {};
-  const recEngine = String(r.engine || rb.engine || 'heuristic').toLowerCase();
-  out.recommendations.engine = recEngine === 'openclaw' ? 'openclaw' : 'heuristic';
+  const recEngine = String(r.engine || rb.engine || 'heuristic').toLowerCase().replace(/_/g, '-');
+  const allowedRecEngines = new Set(['heuristic', 'agent', 'hermes', 'openclaw', 'agent-command', 'custom']);
+  out.recommendations.engine = allowedRecEngines.has(recEngine) ? recEngine : 'heuristic';
   out.recommendations.model = String(r.model ?? rb.model ?? '').trim();
   const recSessionMode = String(r.sessionMode || rb.sessionMode || 'ephemeral').toLowerCase();
   out.recommendations.sessionMode = recSessionMode === 'main' ? 'main' : 'ephemeral';
@@ -722,7 +728,7 @@ function serverConfigForDisk(cfg = {}) {
 }
 
 function defaultStorageRoot() {
-  return normalizeAbs(process.env.PODPICS_DATA_HOME || DEVICE_DEFAULT_ROOT) || DEVICE_DEFAULT_ROOT;
+  return normalizeAbs(process.env.PODPICS_STORAGE_ROOT || process.env.PODPICS_DATA_HOME || DEVICE_DEFAULT_ROOT) || DEVICE_DEFAULT_ROOT;
 }
 
 function pathExistsSyncMaybe(p) {
@@ -2613,11 +2619,138 @@ function extractLastAssistantText(historyResult) {
   const messages = Array.isArray(historyResult?.messages) ? historyResult.messages : [];
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const m = messages[i];
-    if (m?.role !== 'assistant') continue;
-    const txt = contentBlocksToText(m.content);
+    const role = String(m?.role || m?.type || '').toLowerCase();
+    if (role && role !== 'assistant') continue;
+    const txt = contentBlocksToText(m?.content || m?.parts || m?.payloads || []);
     if (txt) return txt;
+    if (typeof m?.text === 'string' && m.text.trim()) return m.text.trim();
   }
   return '';
+}
+
+function resolveAgentProvider(engine = '') {
+  const raw = String(process.env.PODPICS_AGENT_PROVIDER || engine || 'agent').trim().toLowerCase().replace(/_/g, '-');
+  if (raw === 'custom') return 'agent-command';
+  if (['hermes', 'openclaw', 'agent-command', 'auto'].includes(raw)) return raw;
+  return 'auto';
+}
+
+async function commandExists(command) {
+  try {
+    await execFileAsync(command, ['--version'], { timeout: 10_000, maxBuffer: 256_000 });
+    return true;
+  } catch (err) {
+    return String(err?.code || '') !== 'ENOENT';
+  }
+}
+
+function extractHermesText(stdout = '') {
+  const text = String(stdout || '')
+    .split(/\r?\n/)
+    .filter((line) => !/^session_id:\s*/i.test(line.trim()))
+    .join('\n')
+    .trim();
+  if (!text) throw new Error('Hermes returned empty output');
+  return text;
+}
+
+function splitAgentArgs(input = '') {
+  const args = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match;
+  while ((match = re.exec(String(input || '')))) args.push(match[1] ?? match[2] ?? match[3] ?? '');
+  return args;
+}
+
+function parseAgentArgs(raw = '') {
+  if (!String(raw || '').trim()) return ['{prompt}'];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+  } catch {}
+  return splitAgentArgs(raw);
+}
+
+function replaceAgentPlaceholders(value = '', replacements = {}) {
+  return String(value).replace(/\{(prompt|model|timeoutMs)\}/g, (_m, key) => String(replacements[key] || ''));
+}
+
+async function runHermesAgentForJson({ message, model, timeoutMs = 420000, maxJsonAttempts = 3 }) {
+  const attempts = Math.max(1, Math.min(4, Number(maxJsonAttempts || 3)));
+  let lastText = '';
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const attemptMessage = attempt === 1
+      ? makeJsonStrictInstruction(message)
+      : makeJsonStrictInstruction(`${message}\n\nPrevious response was invalid JSON. Retry ${attempt}/${attempts}. Return only complete parseable JSON.\n\nPrevious excerpt:\n${lastText.slice(0, 1200)}`);
+    const args = ['chat', '-q', attemptMessage, '-Q', '--ignore-rules', '--max-turns', '1', '--source', 'podpics'];
+    const provider = String(process.env.PODPICS_HERMES_PROVIDER || '').trim();
+    const modelId = String(model || '').trim();
+    if (provider) args.push('--provider', provider);
+    if (modelId) args.push('--model', modelId);
+    const { stdout } = await execFileAsync('hermes', args, {
+      timeout: Math.max(60_000, Number(timeoutMs) || 420000) + 30_000,
+      maxBuffer: 12_000_000,
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    lastText = extractHermesText(stdout);
+    const parsed = parseJsonObjectLoose(lastText);
+    if (parsed && typeof parsed === 'object') {
+      return { provider: 'hermes', parsed, rawText: lastText, jsonAttempts: attempt };
+    }
+  }
+  throw new Error(`Hermes response was not valid JSON after ${attempts} attempts. Last response: ${lastText.slice(0, 240)}`);
+}
+
+async function runCustomAgentForJson({ message, model, timeoutMs = 420000, maxJsonAttempts = 3 }) {
+  const command = String(process.env.PODPICS_AGENT_COMMAND || '').trim();
+  if (!command) throw new Error('PODPICS_AGENT_COMMAND is required for agent-command provider');
+  const attempts = Math.max(1, Math.min(4, Number(maxJsonAttempts || 3)));
+  let lastText = '';
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const attemptMessage = attempt === 1
+      ? makeJsonStrictInstruction(message)
+      : makeJsonStrictInstruction(`${message}\n\nPrevious response was invalid JSON. Retry ${attempt}/${attempts}. Return only complete parseable JSON.\n\nPrevious excerpt:\n${lastText.slice(0, 1200)}`);
+    const replacements = { prompt: attemptMessage, model: String(model || '').trim(), timeoutMs: String(timeoutMs) };
+    const args = parseAgentArgs(process.env.PODPICS_AGENT_ARGS).map((arg) => replaceAgentPlaceholders(arg, replacements));
+    const { stdout } = await execFileAsync(command, args, {
+      timeout: Math.max(60_000, Number(timeoutMs) || 420000) + 30_000,
+      maxBuffer: 12_000_000,
+      env: { ...process.env, PODPICS_AGENT_PROMPT: attemptMessage, PODPICS_AGENT_MODEL: replacements.model },
+    });
+    lastText = String(stdout || '').trim();
+    const parsed = parseJsonObjectLoose(lastText);
+    if (parsed && typeof parsed === 'object') {
+      return { provider: 'agent-command', parsed, rawText: lastText, jsonAttempts: attempt };
+    }
+  }
+  throw new Error(`Agent command response was not valid JSON after ${attempts} attempts. Last response: ${lastText.slice(0, 240)}`);
+}
+
+async function runAgentForJson(options = {}) {
+  const selected = resolveAgentProvider(options.provider || options.engine || 'agent');
+  const errors = [];
+  const attempts = [];
+  if (selected === 'auto') {
+    if (process.env.PODPICS_AGENT_COMMAND) attempts.push('agent-command');
+    if (await commandExists('hermes')) attempts.push('hermes');
+    if (await commandExists('openclaw')) attempts.push('openclaw');
+  } else {
+    attempts.push(selected);
+  }
+
+  for (const provider of attempts) {
+    try {
+      if (provider === 'hermes') return await runHermesAgentForJson(options);
+      if (provider === 'agent-command') return await runCustomAgentForJson(options);
+      if (provider === 'openclaw') {
+        const run = await runGatewayAgentForJson(options);
+        return { provider: 'openclaw', ...run };
+      }
+    } catch (err) {
+      errors.push(`${provider}: ${String(err?.message || err)}`);
+    }
+  }
+  throw new Error(errors.length ? errors.join(' | ') : 'No supported agent runtime found. Install/configure Hermes, OpenClaw, or set PODPICS_AGENT_COMMAND.');
 }
 
 async function gatewayCallJson(method, params = {}, timeoutMs = 240000) {
@@ -3474,7 +3607,7 @@ async function generateSectionCandidatesByEngine(section, workflowCfg, sectionIn
     const fetched = await fetchSectionCandidatesAsReferenceCover(section, workflowCfg, sectionIndex, opts);
     if (fetched && fetched.ok) return fetched;
   }
-  const engine = String(workflowCfg?.images?.engine || 'openclaw').toLowerCase();
+  const engine = String(workflowCfg?.images?.engine || 'pool').toLowerCase();
   if (engine === 'openai-direct' || engine === 'fal-direct' || engine === 'custom') {
     return generateSectionCandidatesDirect(section, workflowCfg, sectionIndex, opts, engine);
   }
@@ -3512,7 +3645,7 @@ async function persistGeneratedImagePaths(srcPaths = [], paths, groupId = 'sessi
   return [...new Set(out)];
 }
 
-async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflowConfig = null, opts = {}) {
+async function buildRecommendationsAgent(paths, transcriptLines = [], workflowConfig = null, opts = {}) {
   const onProgress = typeof opts?.onProgress === 'function' ? opts.onProgress : () => {};
   const customPrompt = String(opts?.customPrompt || '').trim();
   const wf = normalizeWorkflowConfig(workflowConfig || {});
@@ -3545,7 +3678,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
       poolItems: pools,
       pools: Object.fromEntries(Object.entries(pools).map(([k, v]) => [k, v.length])),
       suggestionSets: [],
-      engineUsed: 'openclaw',
+      engineUsed: 'agent',
     };
     onProgress({
       phase: 'sections-ready',
@@ -3554,7 +3687,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
         promptPresets: emptyOut.promptPresets,
         poolItems: emptyOut.poolItems,
         pools: emptyOut.pools,
-        engineUsed: 'openclaw',
+        engineUsed: emptyOut.engineUsed,
       },
       suggestionSets: [],
       total: 0,
@@ -3570,9 +3703,12 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
     : buildEphemeralSessionKey('podpics-recommendations', Date.now());
 
   const prompt = buildOpenClawRecommendationPrompt(lines, wf, presets, customPrompt);
+  const agentProvider = resolveAgentProvider(recCfg.engine);
   let run;
   try {
-    run = await runGatewayAgentForJson({
+    run = await runAgentForJson({
+      provider: agentProvider,
+      engine: recCfg.engine,
       sessionKey: recSessionKey,
       model: String(recCfg.model || '').trim(),
       thinking: String(recCfg.thinking || 'off'),
@@ -3585,11 +3721,16 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
     const fallback = await buildRecommendationsHeuristic(paths, lines, wf);
     return {
       ...fallback,
-      engineUsed: 'openclaw-fallback-heuristic',
-      warning: `OpenClaw planner failed after JSON retry/repair; used heuristic sections instead: ${String(err?.message || err)}`,
+      engineUsed: 'agent-fallback-heuristic',
+      warning: `Agent planner failed after JSON retry/repair; used heuristic sections instead: ${String(err?.message || err)}`,
     };
   } finally {
-    if (!useMain) {
+    const shouldDeleteOpenClawSession = !useMain && (
+      run?.provider === 'openclaw'
+      || agentProvider === 'openclaw'
+      || (agentProvider === 'auto' && await commandExists('openclaw'))
+    );
+    if (shouldDeleteOpenClawSession) {
       await gatewayCallJson('sessions.delete', { key: recSessionKey, deleteTranscript: true }).catch(() => {});
     }
   }
@@ -3608,7 +3749,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
     promptPresets: presets,
     pools: Object.fromEntries(Object.entries(pools).map(([k, v]) => [k, v.length])),
     poolItems: pools,
-    engineUsed: 'openclaw',
+    engineUsed: run?.provider || 'agent',
   };
 
   onProgress({
@@ -3705,7 +3846,7 @@ async function buildRecommendationsOpenClaw(paths, transcriptLines = [], workflo
     ok: true,
     ...base,
     suggestionSets: sections,
-    engineUsed: 'openclaw',
+    engineUsed: base.engineUsed,
   };
 }
 
@@ -3985,7 +4126,7 @@ async function startRecommendationJob(paths, transcriptLines, workflowConfig = n
   const generatesImages = mode === 'images-only'
     || (
       mode === 'recommendations'
-      && String(wf.recommendations?.engine || 'heuristic').toLowerCase() === 'openclaw'
+      && ['agent', 'hermes', 'openclaw', 'agent-command', 'custom'].includes(String(wf.recommendations?.engine || 'heuristic').toLowerCase())
       && imgEngineProduces
     );
   if (generatesImages) {
@@ -4032,7 +4173,7 @@ async function startRecommendationJob(paths, transcriptLines, workflowConfig = n
         pools: base.pools || {},
         poolItems: base.poolItems || {},
         suggestionSets: Array.isArray(evt.suggestionSets) ? evt.suggestionSets : [],
-        engineUsed: base.engineUsed || 'openclaw',
+        engineUsed: base.engineUsed || 'agent',
       };
       const total = Math.max(1, Number(evt.total || (job.payload.suggestionSets || []).length || 1));
       job.progress = { percent: pctBase, stage: `${startLabel} 0/${total}` };
@@ -4071,9 +4212,9 @@ async function startRecommendationJob(paths, transcriptLines, workflowConfig = n
           appendMode: !!opts?.appendMode,
           onProgress: (evt = {}) => applyProgressEvent(evt, 46, 46, 'preparing sections'),
         });
-      } else if (job.engine === 'openclaw') {
-        job.progress = { percent: 28, stage: 'running OpenClaw recommendation model' };
-        out = await buildRecommendationsOpenClaw(paths, transcriptLines, wf, {
+      } else if (['agent', 'hermes', 'openclaw', 'agent-command', 'custom'].includes(job.engine)) {
+        job.progress = { percent: 28, stage: 'running agent recommendation model' };
+        out = await buildRecommendationsAgent(paths, transcriptLines, wf, {
           customPrompt,
           assetGroupId,
           onProgress: (evt = {}) => applyProgressEvent(evt, 56, 36, 'building sections'),
@@ -4395,7 +4536,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === `${BASE}/api/config`) {
       return sendJson(res, 200, {
         ok: true,
-        workspaceRoot: AGENT_WORKSPACE_ROOT,
+        workspaceRoot: WORKSPACE_ROOT,
         storageRoot: paths.storageRoot,
         ingestRoot: paths.ingestRoot,
         projectsRoot: paths.projectsRoot,
@@ -4414,7 +4555,7 @@ const server = http.createServer(async (req, res) => {
           defaults: publicWorkflowConfig(defaultWorkflowConfig(), false),
           choices: {
             transcriptionProviders: transcriptProviderChoices(),
-            recommendationsEngine: ['heuristic', 'openclaw'],
+            recommendationsEngine: ['heuristic', 'agent', 'hermes', 'openclaw', 'agent-command'],
             imagesEngine: ['pool', 'openclaw'],
             sessionMode: ['ephemeral', 'main'],
           },
@@ -4556,8 +4697,8 @@ const server = http.createServer(async (req, res) => {
           ...(cfg.workflow || {}),
           ...((payload && typeof payload.workflow === 'object') ? payload.workflow : {}),
         }, cfg.workflow || defaultWorkflowConfig());
-        const out = wf.recommendations?.engine === 'openclaw'
-          ? await buildRecommendationsOpenClaw(paths, payload.transcriptLines || [], wf, {
+        const out = ['agent', 'hermes', 'openclaw', 'agent-command', 'custom'].includes(String(wf.recommendations?.engine || '').toLowerCase())
+          ? await buildRecommendationsAgent(paths, payload.transcriptLines || [], wf, {
             customPrompt: String(payload?.customPrompt || '').trim(),
           })
           : await buildRecommendationsHeuristic(paths, payload.transcriptLines || [], wf);

@@ -463,11 +463,14 @@
                 <label for="wfRecEngine">Recommendations engine</label>
                 <select id="wfRecEngine">
                   <option value="heuristic">Heuristic (local fast)</option>
+                  <option value="agent">Agent auto-detect (Hermes preferred)</option>
+                  <option value="hermes">Hermes CLI</option>
                   <option value="openclaw">OpenClaw gateway model</option>
+                  <option value="agent-command">Custom agent command</option>
                 </select>
               </div>
               <div>
-                <label for="wfRecModel">Recommendations model (OpenClaw)</label>
+                <label for="wfRecModel">Recommendations model (optional)</label>
                 <input id="wfRecModel" list="gatewayModelOptions" placeholder="gpt-5.3-codex / gpt-5.5 / ..." autocomplete="off" />
               </div>
               <div>
@@ -587,7 +590,7 @@
                 </div>
                 <div>
                   <label>Engine</label>
-                  <input value="openclaw" disabled />
+                  <input value="agent" disabled />
                 </div>
               </div>
 
@@ -1185,7 +1188,7 @@ function defaultWorkflowConfigState(){
       audioChannel: 'left',
     },
     recommendations: {
-      engine: 'heuristic',
+      engine: 'agent',
       model: '',
       sessionMode: 'ephemeral',
       sessionKey: 'agent:main:podpics-recommendations',
@@ -1234,7 +1237,9 @@ function normalizeWorkflowConfigState(raw){
     : ((transcriptAudioChannel === 'mix' || transcriptAudioChannel === 'both') ? 'mix' : 'left');
 
   const r = cfg.recommendations || {};
-  base.recommendations.engine = String(r.engine || 'heuristic').toLowerCase() === 'openclaw' ? 'openclaw' : 'heuristic';
+  const allowedRecEngines = new Set(['heuristic', 'agent', 'hermes', 'openclaw', 'agent-command', 'custom']);
+  const reqRecEngine = String(r.engine || 'agent').toLowerCase().replace(/_/g, '-');
+  base.recommendations.engine = allowedRecEngines.has(reqRecEngine) ? reqRecEngine : 'heuristic';
   base.recommendations.model = String(r.model || '').trim();
   base.recommendations.sessionMode = String(r.sessionMode || 'ephemeral').toLowerCase() === 'main' ? 'main' : 'ephemeral';
   base.recommendations.sessionKey = String(r.sessionKey || base.recommendations.sessionKey).trim();
@@ -1600,6 +1605,12 @@ function renderGatewayModels(){
     const text = label || (provider ? `${id} (${provider})` : id);
     return `<option value="${esc(id)}">${esc(text)}</option>`;
   }).join('');
+}
+
+function workflowUsesOpenClawGateway(){
+  const wf = state.workflow || {};
+  return String(wf.recommendations?.engine || '').toLowerCase() === 'openclaw'
+    || String(wf.images?.engine || '').toLowerCase() === 'openclaw';
 }
 
 async function refreshGatewayModels(){
@@ -5225,7 +5236,7 @@ showBootLoading(requestedProjectId ? 'Opening project...' : 'Loading projects...
       await loadConfig();
       await loadTranscriptReplaceHistory();
       await loadWorkflowConfig();
-      await refreshGatewayModels().catch(()=>{});
+      if (workflowUsesOpenClawGateway()) await refreshGatewayModels().catch(()=>{});
       await loadBootstrapData({ withSuggestions: false, withTranscript: false, forceEmptyRawVideo: true });
       try {
         await loadProjectById(requestedProjectId);
@@ -5242,7 +5253,7 @@ showBootLoading(requestedProjectId ? 'Opening project...' : 'Loading projects...
     await loadConfig();
     await loadTranscriptReplaceHistory();
     await loadWorkflowConfig();
-    await refreshGatewayModels().catch(()=>{});
+    if (workflowUsesOpenClawGateway()) await refreshGatewayModels().catch(()=>{});
     await loadBootstrapData({ withSuggestions: false, withTranscript: false, forceEmptyRawVideo: true });
     showProjectHome();
   } catch (err) {
